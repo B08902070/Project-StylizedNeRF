@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 vgg = nn.Sequential(
-	                # layer 1
+                    # layer 1
                     nn.Conv2d(3, 3, kernel_size=1, stride = 1),
                     nn.Conv2d(3, 64, kernel_size=3, stride = 1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
