@@ -33,7 +33,7 @@ vgg = nn.Sequential(
                     nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False),
                     nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True)
-	               )
+                   )
 
 decoder = nn.Sequential(
                         nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1, padding_mode='reflect'),
@@ -63,6 +63,6 @@ decoder = nn.Sequential(
 
 class VGG_Net(nn.Module):
     1
-	1
-	1
-	
+    1
+    1
+    
