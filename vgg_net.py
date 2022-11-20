@@ -65,3 +65,4 @@ class VGG_Net(nn.Module):
     1
 	1
 	1
+	
