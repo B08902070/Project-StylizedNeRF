@@ -60,3 +60,8 @@ decoder = nn.Sequential(
                         
                         nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                         )
+
+class VGG_Net(nn.Module):
+    1
+	1
+	1
