@@ -11,7 +11,7 @@ class Style_Transfer_Net(nn.Module):
         self.enc_layer1 = encoder_layers[:3]
         self.enc_layer2 = encoder_layers[3:8]
         self.enc_layer3 = encoder_layers[8:13]
-        self.enc_layer2 = encoder_layers[13:]
+        self.enc_layer4 = encoder_layers[13:]
         self.decoder = nn.Sequential(
                         nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1, padding_mode='reflect'),
                         nn.ReLU(inplace=True),
@@ -40,5 +40,24 @@ class Style_Transfer_Net(nn.Module):
 
         self.mse_loss = nn.MSELoss()
 
-    def forward(self, x, alpha=1.0):
+    def encode(self, input_img):
+        feats=[]
+        for i in range(4):
+            feat = getattr(self, 'enc_layer{:d}'.format(i+1))(input_img)
+            feats.append(feat)
 
+        return feats
+
+    
+    def forward(self, content_img, style_img, alpha=1.0):
+        feats_content = self.encode(content_img)
+        feats_style = self.encode(style_img)
+        feat_stylized = SF.adaIN(feats_content[-1], feats_style[-1])
+
+        stylized_img = self.decoder(feat_stylized)
+        feats_stylized_img = self.encode(stylized_img)
+
+        content_loss = SF.content_loss(feat_stylized, feats_stylized_img[-1])
+        style_loss = SF.style_loss(feats_style, feats_stylized_img)
+
+        return content_loss, style_loss

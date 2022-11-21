@@ -51,4 +51,3 @@ vgg = nn.Sequential(
                     nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
                    )
-print(np.arange(5))
