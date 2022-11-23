@@ -28,9 +28,9 @@ def content_loss(feat_input, feat_target):
     return nn.MSELoss(feat_input, feat_target)
 
 def style_loss(feats_input, feats_target):
-    assert (feat_input.size() == feat_target.size())
+    assert (feats_input.size() == feats_target.size())
     loss = 0.0
-    for i in range(len(feat_input)):
+    for i in range(len(feats_input)):
         mean_input, std_input = cal_mean_std(feats_input[i])
         mean_target, std_target = cal_mean_std(feats_target)
         loss += (nn.MSELoss(mean_input, mean_target) + nn.MSELoss(std_input, std_target))
