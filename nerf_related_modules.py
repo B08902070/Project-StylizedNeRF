@@ -163,4 +163,3 @@ class Style_NeRF(nn.Module):
         out = self.net(pts, dirs)
         out['dirs'] = dirs
         return out
-    
