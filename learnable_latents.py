@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
-import numpy as np
 
 class VAE_encoder(nn.Module):
     def __init__(self, data_dim, latent_dim, W=512, D=4):
@@ -23,7 +23,7 @@ class VAE_encoder(nn.Module):
 
     def forward(self, x):
         for layer in self.fc_layers:
-            x = nn.ReLU(layer(x))
+            x = F.relu(layer(x))
         mu = self.mu_layer(x)
         sigma = self.sigma_layer(x)
 
@@ -48,7 +48,7 @@ class VAE_decoder(nn.Module):
 
     def forward(self, x):
         for layer in self.fc_layers:
-            x = nn.ReLU(layer(x))
+            x = F.relu(layer(x))
         return x
 
 def reparameterize(mu, sigma):
@@ -97,11 +97,11 @@ class VAE(nn.Module):
 
 
 class Learnable_Latents(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, style_num, frame_num, latent_dim):
         super().__init__()
-        self.style_num = kwargs['style_num']
-        self.frame_num = kwargs['frame_num']
-        self.latent_dim = kwargs['latent_dim']
+        self.style_num = style_num
+        self.frame_num = frame_num
+        self.latent_dim = latent_dim
 
         self.latents = Variable(torch.randn(self.style_num, self.frame_num, self.latent_dim))
         self.latents_mu = Variable(self.style_num, self.latent_dim)
@@ -116,16 +116,14 @@ class Learnable_Latents(nn.Module):
         self.latents_mu.requires_grad = False
         self.latents_sigma.requires_grad=False
 
-    def execute(self, **kwargs):
-        style_ids, frame_ids = kwargs['style_ids'], kwargs['frame_ids']
+    def forward(self, style_ids, frame_ids):
         flat_ids= style_ids * self.frame_num + frame_ids
         frame_latents = self.latents.reshape(-1, self.latent_dim)[flat_ids]
         latents_mu = self.latents_mu[style_ids]
         return frame_latents * self.sigma_scale + latents_mu
     
-    def loss(self, **kwargs):
-        style_ids, frame_ids = kwargs['style_args'], kwargs['style_ids']
-        latents = self(style_ids = style_ids, frame_ids = frame_ids)
+    def loss(self, style_ids, frame_ids):
+        latents = self(style_ids, frame_ids)
         mu = self.latents_mu[style_ids]
         sigma = self.latents_sigma[style_ids]
         eps = 1e-3
