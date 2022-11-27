@@ -51,3 +51,29 @@ vgg = nn.Sequential(
                     nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
                    )
+
+decoder = nn.Sequential(
+                        nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1, padding_mode='reflect'),
+                        nn.ReLU(inplace=True),
+                        nn.Upsample(factor=2, mode='nearest'),
+                        nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
+                        nn.ReLU(inplace=True),
+                        nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
+                        nn.ReLU(inplace=True),
+                        nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
+                        nn.ReLU(inplace=True),
+                        
+                        nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
+                        nn.ReLU(inplace=True),
+                        nn.Upsample(factor=2, mode='nearest'),
+                        nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
+                        nn.ReLU(inplace=True),
+                        
+                        nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
+                        nn.ReLU(inplace=True),
+                        nn.Upsample(factor=2, mode='nearest'),
+                        nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
+                        nn.ReLU(inplace=True),
+                        
+                        nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect')
+                       )
