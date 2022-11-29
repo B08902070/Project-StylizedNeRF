@@ -12,9 +12,8 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 
 
-import vgg
-from nst_net import Style_Transfer_Net
-from style_function import adaIN
+import VGG
+from nst_net import NST_Net
 from load_llff import load_llff_data
 
 
@@ -133,8 +132,8 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     """VGG and Decoder"""
-    decoder = vgg.decoder
-    vgg = vgg.vgg
+    decoder = VGG.decoder
+    vgg = VGG.vgg
     decoder.eval()
     vgg.eval()
     print('Load decoder from ', decode_path)
@@ -147,7 +146,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
     vgg = nn.Sequential(*list(vgg.children())[:31])
     vgg.to(device)
     decoder.to(device)
-    nst_net = Style_Transfer_Net(vgg, decoder)
+    nst_net = NST_Net(vgg, decoder)
     nst_net.eval()
 
     images_path = glob.glob(style_path + '/*.png') + glob.glob(style_path + '/*.jpg') + glob.glob(style_path + '/*.jpeg') + glob.glob(style_path + '/*.JPG') + glob.glob(style_path + '/*.PNG')
@@ -739,3 +738,52 @@ class StyleRaySampler_gen(Dataset):
             return self.style_num * self.cps_valid.shape[0] * self.w * self.h
 
 
+class LightDataLoader:
+    def __init__(self, dataset, batch_size, shuffle=True, **kwargs):
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.data_num = len(dataset)
+        self.data_idx = np.arange(self.data_num)
+        if self.shuffle:
+            np.random.shuffle(self.data_idx)
+        self.start = 0
+        data0 = self.dataset.__getitem__(0)
+        self.keys = data0.keys()
+
+    def get_batch(self):
+        if self.batch_size >= self.data_num:
+            idx = np.random.choice(self.data_idx, self.batch_size, replace=True)
+            # Initialize
+            batch_data = {}
+            for key in self.keys:
+                batch_data[key] = []
+            # Append data
+            for i in range(self.batch_size):
+                data = self.dataset.__getitem__(idx[i])
+                for key in data.keys():
+                    batch_data[key].append(data[key])
+            self.start += self.batch_size
+            # To tensor
+            for key in self.keys:
+                batch_data[key] = torch.from_numpy(np.stack(batch_data[key]))
+            return batch_data
+
+        # Check if shuffle again
+        if self.start + self.batch_size >= self.data_num:
+            self.start = 0
+            np.random.shuffle(self.data_idx)
+        # Initialize
+        batch_data = {}
+        for key in self.keys:
+            batch_data[key] = []
+        # Append data
+        for i in range(self.batch_size):
+            data = self.dataset.__getitem__(self.data_idx[self.start + i])
+            for key in data.keys():
+                batch_data[key].append(data[key])
+        self.start += self.batch_size
+        # To tensor
+        for key in self.keys:
+            batch_data[key] = torch.from_numpy(np.stack(batch_data[key])).float()
+        return batch_data

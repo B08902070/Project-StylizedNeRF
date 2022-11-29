@@ -194,3 +194,4 @@ class Style_Module(nn.Module):
         h = F.sigmoid(h)
         out = {'rgb': h}
         return out
+    

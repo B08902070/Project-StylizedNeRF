@@ -6,9 +6,9 @@ import style_function as SF
 
 
 
-class Style_Transfer_Net(nn.Module):
+class NST_Net(nn.Module):
     def __init__(self, encoder, decoder):
-        super(Style_Transfer_Net, self).__init__()
+        super(NST_Net, self).__init__()
 
         encoder_layers = list(encoder.children())
         self.enc_layer1 = encoder_layers[:3]
