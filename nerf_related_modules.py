@@ -58,7 +58,7 @@ class Embedder:
       
 
 class Style_NeRF_MLP(nn.Module):
-    def __init__(self, W=8, D=256, input_ch_pts=3, input_ch_viewdir=3, skips=[4],
+    def __init__(self, W=256, D=8, input_ch_pts=3, input_ch_viewdir=3, skips=[4],
                      act_fn=nn.ReLU, use_viewdir=True, sigma_mul=0, enable_style=False):
         super().__init__()
         self.input_ch_pts = input_ch_pts
