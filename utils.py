@@ -7,11 +7,13 @@ import pickle
 import imageio
 import plyfile
 import numpy as np
+import torch.nn as nn
 from tqdm import tqdm
 from PIL import Image
 # mpl.use('Agg')
 import matplotlib.pyplot as plt
 from plyfile import PlyElement, PlyData
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -352,22 +354,22 @@ def alpha_composition(pts_rgb, pts_sigma, t_values, sigma_noise_std=0., white_bk
         t_exp: [num_rays]. Estimated distance to object.
     """
     # sigma2alpha = lambda sigma, dists: 1.-jt.exp(-sigma * dists)
-    sigma2alpha = lambda raw, dists, act_fn=jt.nn.relu: 1. - jt.exp(-act_fn(raw) * dists)
+    sigma2alpha = lambda raw, dists, act_fn=nn.relu: 1. - torch.exp(-act_fn(raw) * dists)
 
     delta = t_values[..., 1:] - t_values[..., :-1]
-    delta = jt.concat([delta, jt.array([1e10]).expand(delta[..., :1].shape)], -1)  # [N_rays, N_samples]
+    delta = torch.cat([delta, torch.array([1e10]).expand(delta[..., :1].shape)], -1)  # [N_rays, N_samples]
 
     noise = 0.
     if sigma_noise_std > 0:
         # noise = jt.random(pts_sigma.shape) * sigma_noise_std
-        noise = jt.init.gauss(pts_sigma.shape, pts_sigma.dtype) * sigma_noise_std
+        noise = nn.init.normal_(size = pts_sigma.shape, dtype = pts_sigma.dtype) * sigma_noise_std
 
-    alpha = sigma2alpha(jt.nn.relu(pts_sigma + noise), delta)  # [N_rays, N_samples]
-    weights = alpha * jt.cumprod(jt.concat([jt.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]
-    rgb_exp = jt.sum(weights[..., None] * pts_rgb, -2)  # [N_rays, 3]
+    alpha = sigma2alpha(F.relu(pts_sigma + noise), delta)  # [N_rays, N_samples]
+    weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]
+    rgb_exp = torch.sum(weights[..., None] * pts_rgb, -2)  # [N_rays, 3]
 
-    t_exp = jt.sum(weights * t_values, -1)
-    acc_map = jt.sum(weights, -1)
+    t_exp = torch.sum(weights * t_values, -1)
+    acc_map = torch.sum(weights, -1)
     if white_bkgd:
         rgb_exp = rgb_exp + (1. - acc_map[..., None])
 
@@ -392,7 +394,7 @@ def alpha_composition_wild(pts_rgb, pts_sigma, t_values, pts_transient_rgb, pts_
 
     noise = 0.
     if sigma_noise_std > 0:
-        noise = torch.randn(pts_sigma.shape, device=pts_sigma.device) * sigma_noise_std
+        noise = nn.init.normal_(pts_sigma.shape, device=pts_sigma.device) * sigma_noise_std
 
     sigma_static = torch.relu(pts_sigma + noise)
     alpha_static = sigma2alpha(sigma_static, delta)
@@ -435,15 +437,15 @@ def batchify(fn, chunk=1024*32):
                     all_ret[k] = []
                 all_ret[k].append(ret[k])
 
-        all_ret = {k: jt.concat(all_ret[k], 0) for k in all_ret}
+        all_ret = {k: torch.cat(all_ret[k], 0) for k in all_ret}
         return all_ret
 
     return ret_func
 
 
-img2mse = lambda x, y: jt.mean((x - y) ** 2)
+img2mse = lambda x, y: torch.mean((x - y) ** 2)
 img2l1 = lambda x, y: (x - y).abs().mean()
-mse2psnr = lambda x: -10. * jt.log(x) / jt.log(jt.array([10.]))
+mse2psnr = lambda x: -10. * torch.log(x) / torch.log(torch.array([10.]))
 to8b = lambda x: np.array(x, dtype=np.uint8)
 
 
@@ -494,7 +496,7 @@ def sampling_pts_uniform(rays_o, rays_d, N_samples=64, near=0., far=1.05, harmon
     ray_num = rays_o.shape[0]
 
     #  Uniform sampling ts of shape [ray, N_samples]
-    ts = jt.linspace(0, 1, N_samples).unsqueeze(0).expand(ray_num, N_samples)
+    ts = torch.linspace(0, 1, N_samples).unsqueeze(0).expand(ray_num, N_samples)
     if not harmony:
         ts = ts * (far - near) + near
     else:
@@ -502,11 +504,11 @@ def sampling_pts_uniform(rays_o, rays_d, N_samples=64, near=0., far=1.05, harmon
 
     if perturb:
         #  Add perturb
-        rand = jt.zeros([ray_num, N_samples])
-        jt.init.uniform_(rand, 0, 1)
+        rand = torch.zeros([ray_num, N_samples])
+        nn.init.uniform_(rand, 0, 1)
         mid = (ts[..., 1:] + ts[..., :-1]) / 2
-        upper = jt.concat([mid, ts[..., -1:]], -1)
-        lower = jt.concat([ts[..., :1], mid], -1)
+        upper = torch.cat([mid, ts[..., -1:]], -1)
+        lower = torch.cat([ts[..., :1], mid], -1)
         ts = lower + (upper - lower) * rand
 
     #  From ts to pts. [ray, N_samples, 3]
@@ -524,35 +526,35 @@ def sampling_pts_fine(rays_o, rays_d, ts, weights, N_samples_fine=64):
     ts_mid = 0.5 * (ts[..., 1:] + ts[..., :-1])
     # pdf of shape [ray, N_samples - 2]
     weights = weights[..., 1:-1] + 1e-3
-    pdf = weights / jt.sum(weights, -1, keepdims=True)
+    pdf = weights / torch.sum(weights, -1, keepdims=True)
     # cdf of shape [ray, N_samples - 1]
-    cdf = jt.cumsum(pdf, -1)
-    cdf = jt.concat([jt.zeros_like(cdf[..., :1]), cdf], -1)
+    cdf = torch.cumsum(pdf, -1)
+    cdf = torch.cat([torch.zeros_like(cdf[..., :1]), cdf], -1)
     # random sampling of shape [ray, N_samples_fine]
-    u = jt.random(list(cdf.shape[:-1]) + [N_samples_fine]) * (1-1e-3)  # Avoid sample 1
+    u = torch.random(list(cdf.shape[:-1]) + [N_samples_fine]) * (1-1e-3)  # Avoid sample 1
     # inds below of shape [ray, N_samples_fine] in range [0, N_samples - 3]
-    below = jt.searchsorted(cdf, u, right=True)
-    below = jt.maximum(jt.zeros_like(below - 1), below - 1)
-    below = jt.minimum((N_samples - 3) * jt.ones_like(below), below)
+    below = torch.searchsorted(cdf, u, right=True)
+    below = torch.maximum(torch.zeros_like(below - 1), below - 1)
+    below = torch.minimum((N_samples - 3) * torch.ones_like(below), below)
     # Use below to gather cdf. [ray, N_samples_fine]
     ray_Nfine_N_1 = [ray_num, N_samples_fine, N_samples - 1]
-    cdf_g = jt.gather(cdf.unsqueeze(1).expand(ray_Nfine_N_1), -1, below.unsqueeze(-1)).squeeze(-1)
+    cdf_g = torch.gather(cdf.unsqueeze(1).expand(ray_Nfine_N_1), -1, below.unsqueeze(-1)).squeeze(-1)
     # Interval t values of cdf (pdf). [ray, N_samples_fine]
     ray_Nfine_N_2 = [ray_num, N_samples_fine, N_samples - 2]
-    pdf_g = jt.gather(pdf.unsqueeze(1).expand(ray_Nfine_N_2), -1, below.unsqueeze(-1)).squeeze(-1)
-    pdf_g = jt.ternary(pdf_g == 0, jt.ones_like(pdf_g), pdf_g)
+    pdf_g = torch.gather(pdf.unsqueeze(1).expand(ray_Nfine_N_2), -1, below.unsqueeze(-1)).squeeze(-1)
+    pdf_g = torch.where(pdf_g == 0, torch.ones_like(pdf_g), pdf_g)
     # ts in each interval. [ray, N_samples_fine]
     ts_interval = (u - cdf_g) / pdf_g
     # Above index of shape [ray, N_samples_fine] in range(1, N_samples - 2)
-    above = jt.minimum((cdf.shape[-1] - 1) * jt.ones_like(below), below + 1)
+    above = torch.minimum((cdf.shape[-1] - 1) * torch.ones_like(below), below + 1)
     # ts boarder of each interval. [ray, N_samples_fine]
-    ts_near = jt.gather(ts_mid.unsqueeze(1).expand([ray_num, N_samples_fine, N_samples-1]), -1, below.unsqueeze(-1)).squeeze(-1)
-    ts_far = jt.gather(ts_mid.unsqueeze(1).expand([ray_num, N_samples_fine, N_samples-1]), -1, above.unsqueeze(-1)).squeeze(-1)
+    ts_near = torch.gather(ts_mid.unsqueeze(1).expand([ray_num, N_samples_fine, N_samples-1]), -1, below.unsqueeze(-1)).squeeze(-1)
+    ts_far = torch.gather(ts_mid.unsqueeze(1).expand([ray_num, N_samples_fine, N_samples-1]), -1, above.unsqueeze(-1)).squeeze(-1)
     # ts_fine of shape [ray, N_samples_fine]
     ts_fine = ts_near + ts_interval * (ts_far - ts_near)
     # Sort from near to far [ray, N_samples + N_samples_fine]
-    ts = jt.concat([ts, ts_fine], dim=-1)
-    _, ts = jt.argsort(ts, dim=-1)
+    ts = torch.cat([ts, ts_fine], dim=-1)
+    _, ts = torch.argsort(ts, dim=-1)
     # Avoid BP
     ts = ts.detach()
 
@@ -571,7 +573,7 @@ def sampling_pts_fine_jt(rays_o, rays_d, ts, weights, N_samples_fine=64):
     ts_mid = 0.5 * (ts[..., 1:] + ts[..., :-1])
     t_samples = sample_pdf(ts_mid, weights[..., 1:-1], N_samples_fine, det=True)
     t_samples = t_samples.detach()
-    _, t_vals = jt.argsort(jt.concat([ts, t_samples], -1), -1)
+    _, t_vals = torch.argsort(torch.cat([ts, t_samples], -1), -1)
     pts = rays_o.unsqueeze(-2) + rays_d.unsqueeze(-2) * t_vals.unsqueeze(-1)  # [N_rays, N_samples + N_importance, 3]
 
     # Avoid BP
@@ -583,29 +585,29 @@ def sampling_pts_fine_jt(rays_o, rays_d, ts, weights, N_samples_fine=64):
 def sample_pdf(bins, weights, N_samples, det=False):
     # Get pdf
     weights = weights + 1e-5  # prevent nans
-    pdf = weights / jt.sum(weights, -1, keepdims=True)
-    cdf = jt.cumsum(pdf, -1)
-    cdf = jt.concat([jt.zeros_like(cdf[...,:1]), cdf], -1)  # (batch, len(bins))
+    pdf = weights / torch.sum(weights, -1, keepdims=True)
+    cdf = torch.cumsum(pdf, -1)
+    cdf = torch.cat([torch.zeros_like(cdf[...,:1]), cdf], -1)  # (batch, len(bins))
 
     # Take uniform samples
     if det:
-        u = jt.linspace(0., 1., steps=N_samples)
+        u = torch.linspace(0., 1., steps=N_samples)
         u = u.expand(list(cdf.shape[:-1]) + [N_samples])
     else:
-        u = jt.random(list(cdf.shape[:-1]) + [N_samples])
+        u = torch.random(list(cdf.shape[:-1]) + [N_samples])
 
     # Invert CDF
-    inds = jt.searchsorted(cdf, u, right=True)
-    below = jt.maximum(jt.zeros_like(inds-1), inds-1)
-    above = jt.minimum((cdf.shape[-1]-1) * jt.ones_like(inds), inds)
-    inds_g = jt.stack([below, above], -1)  # (batch, N_samples, 2)
+    inds = torch.searchsorted(cdf, u, right=True)
+    below = torch.maximum(torch.zeros_like(inds-1), inds-1)
+    above = torch.minimum((cdf.shape[-1]-1) * torch.ones_like(inds), inds)
+    inds_g = torch.stack([below, above], -1)  # (batch, N_samples, 2)
 
     matched_shape = [inds_g.shape[0], inds_g.shape[1], cdf.shape[-1]]
-    cdf_g = jt.gather(cdf.unsqueeze(1).expand(matched_shape), 2, inds_g)
-    bins_g = jt.gather(bins.unsqueeze(1).expand(matched_shape), 2, inds_g)
+    cdf_g = torch.gather(cdf.unsqueeze(1).expand(matched_shape), 2, inds_g)
+    bins_g = torch.gather(bins.unsqueeze(1).expand(matched_shape), 2, inds_g)
 
     denom = (cdf_g[..., 1]-cdf_g[..., 0])
-    cond = jt.where(denom < 1e-5)
+    cond = np.where(denom < 1e-5)
     denom[cond[0], cond[1]] = 1.
     t = (u-cdf_g[..., 0]) / denom
     samples = bins_g[..., 0] + t * (bins_g[..., 1]-bins_g[..., 0])

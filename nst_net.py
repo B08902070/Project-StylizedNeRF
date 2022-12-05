@@ -14,7 +14,7 @@ class NST_Net(nn.Module):
         self.enc_layer1 = encoder_layers[:3]
         self.enc_layer2 = encoder_layers[3:8]
         self.enc_layer3 = encoder_layers[8:13]
-        self.enc_layer4 = encoder_layers[13:]
+        self.enc_layer4 = encoder_layers[13:22]
         self.decoder = decoder
 
         self.mse_loss = nn.MSELoss()
