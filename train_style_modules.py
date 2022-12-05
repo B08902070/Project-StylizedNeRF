@@ -38,8 +38,6 @@ def train_transform2():
 
 
 
-
-
 def finetune_decoder(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_dir = Path(args.save_dir)
@@ -48,14 +46,9 @@ def finetune_decoder(args):
     log_dir.mkdir(exist_ok=True, parents=True)
     writer = SummaryWriter(log_dir=str(log_dir))
 
-    decoder = VGG.decoder
-    vgg = VGG.vgg
-
-    decoder.load_state_dict(torch.load('./models/decoder.pth'))
-
-    vgg.load_state_dict(torch.load(args.vgg_dir))
-    vgg = nn.Sequential(*list(vgg.children())[:31])
-    network = NST_Net(vgg, decoder)
+    
+    network = NST_Net(encoder_pretrained_path= args.vgg_pretrained_path)
+    network.load_decoder_state_dict(torch.load('./pretrained/decoder.pth'))
     network.train()
     network.to(device)
 
@@ -100,6 +93,143 @@ def finetune_decoder(args):
                        'decoder_iter_{:d}.pth.tar'.format(i + 1))
     writer.close()
 
+
+
+def train_temporal_decoder(args):
+    if not args.no_ndc:
+        print("Using NDC Coordinate System! Check Nerf and dataset to be LLFF !!!!!!!")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    save_dir = Path(args.save_dir)
+    save_dir.mkdir(exist_ok=True, parents=True)
+    log_dir = Path(args.log_dir)
+    log_dir.mkdir(exist_ok=True, parents=True)
+    writer = SummaryWriter(log_dir=str(log_dir))
+
+    network = NST_Net(encoder_pretrained_path= args.vgg_pretrained_path)
+    ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
+    if len(ckpts) > 0 and not args.no_reload:
+        ld_dict = torch.load(ckpts[-1])
+        network.load_decoder_state_dict(ld_dict['decoder'])
+        step = ld_dict['step']
+    else:
+        print('From original pth file')
+        network.load_decoder_state_dict(torch.load('./pretrained/decoder.pth'))
+        step = 0
+
+    network.train()
+    network.to(device)
+
+    style_tf = train_transform2()
+
+    content_dataset = CoorImageDataset(args.nerf_content_dir)
+    style_dataset = FlatFolderDataset(args.style_dir, style_tf)
+
+    # Camera for Rendering
+    h, w, focal = content_dataset.hwf
+    h, w = int(h), int(w)
+    cx, cy = w/2, h/2
+    near_prj, far_prj = 1e-3, 1e5
+    projectionMatrix = np.array([[-2*focal/w, 0,          1-2*cx/w,               0],
+                                 [0,          2*focal/h,  2*cy/h-1,               0],
+                                 [0,          0,          -(far_prj+near_prj)/(far_prj-near_prj), -2*far_prj*near_prj/(far_prj-near_prj)],
+                                 [0,          0,          -1,                     0]])
+    camera = Camera(projectionMatrix=projectionMatrix)
+    camera.to(device)
+
+    content_iter = iter(data.DataLoader(
+        content_dataset, batch_size=args.batch_size,
+        sampler=InfiniteSamplerWrapper(content_dataset),
+        num_workers=args.n_threads))
+    style_iter = iter(data.DataLoader(
+        style_dataset, batch_size=1,
+        sampler=InfiniteSamplerWrapper(style_dataset),
+        num_workers=args.n_threads))
+
+    # Sampling Patch
+    patch_size = 512
+    if patch_size > 0:
+        patch_h_min, patch_w_min = np.random.randint(0, h-patch_size), np.random.randint(0, w-patch_size)
+        patch_h_max, patch_w_max = patch_h_min + patch_size, patch_w_min + patch_size
+    else:
+        patch_h_min, patch_w_min = 0, 0
+        patch_h_max, patch_w_max = h, w
+
+    resample_layer = nn.Upsample(size=(int(patch_h_max - patch_h_min), int(patch_w_max - patch_w_min)), mode='bilinear', align_corners=True)
+    optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)
+
+    space_dist_threshold = 5e-2
+
+    for i in tqdm(range(step, args.max_iter)):
+
+        adjust_learning_rate(optimizer, iteration_count=i)
+        content_images, coor_maps, cps = next(content_iter)
+        content_images, coor_maps, cps = content_images[..., patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
+                                         coor_maps[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
+                                         cps.to(device)
+        if not args.no_ndc:
+            coor_maps = ndc2world(coor_maps, h, w, focal)
+
+        # The same style image
+        style_images = next(style_iter).to(device)
+        style_images = style_images[:1].expand([args.batch_size, * style_images.shape[1:]])
+
+        loss_c, loss_s, stylized_content = network(content_images, style_images, return_stylized_content=True)
+        stylized_content = resample_layer(stylized_content)
+
+        # Set camera pose
+        camera.set(cameraPose=cps)
+        pcl_coor_world0 = coor_maps[0].reshape([-1, 3])
+        pcl_rgb0 = torch.movedim(stylized_content[0], 0, -1).reshape([-1, 3])
+
+        warped_stylized_content0, warped_coor_map0, warped_msks = camera.rasterize(pcl_coor_world0, pcl_rgb0, h=h, w=w)
+        warped_stylized_content0, warped_coor_map0, warped_msks = warped_stylized_content0[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max],\
+                                                                  warped_coor_map0[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max],\
+                                                                  warped_msks[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max]
+        coor_dist_msk = (((warped_coor_map0 - coor_maps) ** 2).sum(-1, keepdim=True) < space_dist_threshold ** 2).float()
+
+        loss_t = (((torch.movedim(stylized_content, 1, -1) - warped_stylized_content0) ** 2) * warped_msks * coor_dist_msk).mean()
+        loss_t = args.temporal_weight * loss_t
+
+        loss_c = args.content_weight * loss_c
+        loss_s = args.style_weight * loss_s
+        loss = loss_c + loss_s + loss_t
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        writer.add_scalar('loss_content', loss_c.item(), i + 1)
+        writer.add_scalar('loss_style', loss_s.item(), i + 1)
+        writer.add_scalar('loss_temporal', loss_t.item(), i + 1)
+
+        if (i + 1) % args.print_interval == 0:
+            print('Iter %d Content Loss: %.3f Style Loss: %.3f Temporal Loss: %.3f' % (i, loss_c.item(), loss_s.item(), loss_t.item()))
+
+        if i == 0 or (i + 1) % args.save_model_interval == 0 or (i + 1) == args.max_iter:
+            state_dict = network.decoder.state_dict()
+            for key in state_dict.keys():
+                state_dict[key] = state_dict[key].to(torch.device('cpu'))
+            sv_dict = {'decoder': state_dict, 'step': (i+1)}
+            torch.save(sv_dict, save_dir /
+                       'decoder_iter_{:d}.pth.tar'.format(i + 1))
+            # Delete ckpts
+            ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
+            if len(ckpts) > args.ckp_num:
+                os.remove(ckpts[0])
+
+            warped_stylized_content0 = torch.clamp(warped_stylized_content0, 0, 1).detach().cpu().numpy()
+            coor_dist_msk = np.broadcast_to(coor_dist_msk.detach().cpu().numpy(), [*coor_dist_msk.shape[:-1], 3])
+            warped_msks = np.broadcast_to(warped_msks.detach().cpu().numpy(), [*warped_msks.shape[:-1], 3])
+            stylized_content = torch.movedim(torch.clamp(stylized_content, 0., 1.), 1, -1).detach().cpu().numpy()
+            for i in range(warped_stylized_content0.shape[0]):
+                Image.fromarray(np.uint8(255 * warped_stylized_content0[i])).save(args.log_dir + '/warped_stylized_content_%03d.png' % i)
+                Image.fromarray(np.uint8(255 * stylized_content[i])).save(args.log_dir + '/stylized_content_%03d.png' % i)
+                Image.fromarray(np.uint8(255 * coor_dist_msk[i])).save(args.log_dir + '/coor_dist_msk_%03d.png' % i)
+                Image.fromarray(np.uint8(255 * warped_msks[i])).save(args.log_dir + '/warped_mask_%03d.png' % i)
+            Image.fromarray(np.uint8(255*torch.movedim(style_images[0], 0, -1).detach().cpu().numpy())).save(args.log_dir + '/style_image.png')
+
+    writer.close()
 
 def train_vae(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -156,9 +286,6 @@ def train_vae(args):
                 state_dict[key] = state_dict[key].to(torch.device('cpu'))
             torch.save(state_dict, vae_ckpt)
     writer.close()
-
-
-
     
 def train_temporal_invoke(save_dir, sv_name, log_dir, is_ndc, nerf_content_dir, style_dir, batch_size, n_threads=8, lr=1e-3, max_iter=1000):
     if is_ndc:
@@ -178,22 +305,17 @@ def train_temporal_invoke(save_dir, sv_name, log_dir, is_ndc, nerf_content_dir, 
     writer = SummaryWriter(log_dir=str(log_dir))
     save_dir, log_dir = str(save_dir), str(log_dir)
 
-    decoder = VGG.decoder
-    vgg = VGG.vgg
-
+    network = NST_Net(args.vgg_pretrained_path)
     ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if sv_name in f]
     if len(ckpts) > 0:
         ld_dict = torch.load(ckpts[-1])
-        decoder.load_state_dict(ld_dict['decoder'])
+        network.load_decoder_state_dict(ld_dict['decoder'])
         step = ld_dict['step']
     else:
         print('From original pth file')
-        decoder.load_state_dict(torch.load('./pretrained/decoder.pth'))
+        network.load_decoder_state_dict(torch.load('./pretrained/decoder.pth'))
         shutil.copy('./pretrained/decoder.pth', save_dir + '/' + sv_name)
         step = 0
-    vgg.load_state_dict(torch.load('./pretrained/vgg_normalised.pth'))
-    vgg = nn.Sequential(*list(vgg.children())[:31])
-    network = NST_Net(vgg, decoder)
     network.train()
     network.to(device)
 
@@ -324,22 +446,17 @@ def train_temporal_invoke_pl(save_dir, sv_name, log_dir, nerf_content_dir, style
     writer = SummaryWriter(log_dir=str(log_dir))
     save_dir, log_dir = str(save_dir), str(log_dir)
 
-    decoder = VGG.decoder
-    vgg = VGG.vgg
-
+    network = NST_Net(args.vgg_pretrained_path)
     ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if sv_name in f]
     if len(ckpts) > 0:
         ld_dict = torch.load(ckpts[-1])
-        decoder.load_state_dict(ld_dict['decoder'])
+        network.load_decoder_state_dict(ld_dict['decoder'])
         step = ld_dict['step']
     else:
         print('From original pth file')
-        decoder.load_state_dict(torch.load('./pretrained/decoder.pth'))
+        network.load_decoder_state_dict(torch.load('./pretrained/decoder.pth'))
         shutil.copy('./pretrained/decoder.pth', save_dir + '/' + sv_name)
-        step = 0
-    vgg.load_state_dict(torch.load('./pretrained/vgg_normalised.pth'))
-    vgg = nn.Sequential(*list(vgg.children())[:31])
-    network = NST_Net(vgg, decoder)
+        step = 0 
     network.train()
     network.to(device)
 
@@ -471,147 +588,7 @@ def ndc2world(coor_ndc, h, w, focal):
     return coor_world
 
 
-def train_temporal_decoder(args):
-    if not args.no_ndc:
-        print("Using NDC Coordinate System! Check Nerf and dataset to be LLFF !!!!!!!")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    save_dir = Path(args.save_dir)
-    save_dir.mkdir(exist_ok=True, parents=True)
-    log_dir = Path(args.log_dir)
-    log_dir.mkdir(exist_ok=True, parents=True)
-    writer = SummaryWriter(log_dir=str(log_dir))
-
-    decoder = VGG.decoder
-    vgg = VGG.vgg
-
-    ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
-    if len(ckpts) > 0 and not args.no_reload:
-        ld_dict = torch.load(ckpts[-1])
-        decoder.load_state_dict(ld_dict['decoder'])
-        step = ld_dict['step']
-    else:
-        print('From original pth file')
-        decoder.load_state_dict(torch.load('./pretrained/decoder.pth'))
-        step = 0
-    vgg.load_state_dict(torch.load('./pretrained/vgg_normalised.pth'))
-
-    vgg.load_state_dict(torch.load(args.vgg))
-    vgg = nn.Sequential(*list(vgg.children())[:31])
-    network = NST_Net(vgg, decoder)
-    network.train()
-    network.to(device)
-
-    style_tf = train_transform2()
-
-    content_dataset = CoorImageDataset(args.nerf_content_dir)
-    style_dataset = FlatFolderDataset(args.style_dir, style_tf)
-
-    # Camera for Rendering
-    h, w, focal = content_dataset.hwf
-    h, w = int(h), int(w)
-    cx, cy = w/2, h/2
-    near_prj, far_prj = 1e-3, 1e5
-    projectionMatrix = np.array([[-2*focal/w, 0,          1-2*cx/w,               0],
-                                 [0,          2*focal/h,  2*cy/h-1,               0],
-                                 [0,          0,          -(far_prj+near_prj)/(far_prj-near_prj), -2*far_prj*near_prj/(far_prj-near_prj)],
-                                 [0,          0,          -1,                     0]])
-    camera = Camera(projectionMatrix=projectionMatrix)
-    camera.to(device)
-
-    content_iter = iter(data.DataLoader(
-        content_dataset, batch_size=args.batch_size,
-        sampler=InfiniteSamplerWrapper(content_dataset),
-        num_workers=args.n_threads))
-    style_iter = iter(data.DataLoader(
-        style_dataset, batch_size=1,
-        sampler=InfiniteSamplerWrapper(style_dataset),
-        num_workers=args.n_threads))
-
-    # Sampling Patch
-    patch_size = 512
-    if patch_size > 0:
-        patch_h_min, patch_w_min = np.random.randint(0, h-patch_size), np.random.randint(0, w-patch_size)
-        patch_h_max, patch_w_max = patch_h_min + patch_size, patch_w_min + patch_size
-    else:
-        patch_h_min, patch_w_min = 0, 0
-        patch_h_max, patch_w_max = h, w
-
-    resample_layer = nn.Upsample(size=(int(patch_h_max - patch_h_min), int(patch_w_max - patch_w_min)), mode='bilinear', align_corners=True)
-    optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)
-
-    space_dist_threshold = 5e-2
-
-    for i in tqdm(range(step, args.max_iter)):
-
-        adjust_learning_rate(optimizer, iteration_count=i)
-        content_images, coor_maps, cps = next(content_iter)
-        content_images, coor_maps, cps = content_images[..., patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
-                                         coor_maps[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
-                                         cps.to(device)
-        if not args.no_ndc:
-            coor_maps = ndc2world(coor_maps, h, w, focal)
-
-        # The same style image
-        style_images = next(style_iter).to(device)
-        style_images = style_images[:1].expand([args.batch_size, * style_images.shape[1:]])
-
-        loss_c, loss_s, stylized_content = network(content_images, style_images, return_stylized_content=True)
-        stylized_content = resample_layer(stylized_content)
-
-        # Set camera pose
-        camera.set(cameraPose=cps)
-        pcl_coor_world0 = coor_maps[0].reshape([-1, 3])
-        pcl_rgb0 = torch.movedim(stylized_content[0], 0, -1).reshape([-1, 3])
-
-        warped_stylized_content0, warped_coor_map0, warped_msks = camera.rasterize(pcl_coor_world0, pcl_rgb0, h=h, w=w)
-        warped_stylized_content0, warped_coor_map0, warped_msks = warped_stylized_content0[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max],\
-                                                                  warped_coor_map0[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max],\
-                                                                  warped_msks[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max]
-        coor_dist_msk = (((warped_coor_map0 - coor_maps) ** 2).sum(-1, keepdim=True) < space_dist_threshold ** 2).float()
-
-        loss_t = (((torch.movedim(stylized_content, 1, -1) - warped_stylized_content0) ** 2) * warped_msks * coor_dist_msk).mean()
-        loss_t = args.temporal_weight * loss_t
-
-        loss_c = args.content_weight * loss_c
-        loss_s = args.style_weight * loss_s
-        loss = loss_c + loss_s + loss_t
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        writer.add_scalar('loss_content', loss_c.item(), i + 1)
-        writer.add_scalar('loss_style', loss_s.item(), i + 1)
-        writer.add_scalar('loss_temporal', loss_t.item(), i + 1)
-
-        if (i + 1) % args.print_interval == 0:
-            print('Iter %d Content Loss: %.3f Style Loss: %.3f Temporal Loss: %.3f' % (i, loss_c.item(), loss_s.item(), loss_t.item()))
-
-        if i == 0 or (i + 1) % args.save_model_interval == 0 or (i + 1) == args.max_iter:
-            state_dict = network.decoder.state_dict()
-            for key in state_dict.keys():
-                state_dict[key] = state_dict[key].to(torch.device('cpu'))
-            sv_dict = {'decoder': state_dict, 'step': (i+1)}
-            torch.save(sv_dict, save_dir /
-                       'decoder_iter_{:d}.pth.tar'.format(i + 1))
-            # Delete ckpts
-            ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
-            if len(ckpts) > args.ckp_num:
-                os.remove(ckpts[0])
-
-            warped_stylized_content0 = torch.clamp(warped_stylized_content0, 0, 1).detach().cpu().numpy()
-            coor_dist_msk = np.broadcast_to(coor_dist_msk.detach().cpu().numpy(), [*coor_dist_msk.shape[:-1], 3])
-            warped_msks = np.broadcast_to(warped_msks.detach().cpu().numpy(), [*warped_msks.shape[:-1], 3])
-            stylized_content = torch.movedim(torch.clamp(stylized_content, 0., 1.), 1, -1).detach().cpu().numpy()
-            for i in range(warped_stylized_content0.shape[0]):
-                Image.fromarray(np.uint8(255 * warped_stylized_content0[i])).save(args.log_dir + '/warped_stylized_content_%03d.png' % i)
-                Image.fromarray(np.uint8(255 * stylized_content[i])).save(args.log_dir + '/stylized_content_%03d.png' % i)
-                Image.fromarray(np.uint8(255 * coor_dist_msk[i])).save(args.log_dir + '/coor_dist_msk_%03d.png' % i)
-                Image.fromarray(np.uint8(255 * warped_msks[i])).save(args.log_dir + '/warped_mask_%03d.png' % i)
-            Image.fromarray(np.uint8(255*torch.movedim(style_images[0], 0, -1).detach().cpu().numpy())).save(args.log_dir + '/style_image.png')
-
-    writer.close()
 
 
 if __name__ == '__main__':
@@ -626,7 +603,7 @@ if __name__ == '__main__':
                         help='Directory path to a batch of content images')
     parser.add_argument('--style_dir', type=str, default='./all_styles/',
                         help='Directory path to a batch of style images')
-    parser.add_argument('--vgg_dir', type=str, default='./pretrained/vgg_normalised.pth')
+    parser.add_argument('--vgg_pretrained_path', type=str, default='./pretrained/vgg_normalised.pth')
 
     parser.add_argument('--no_ndc', action='store_true')
     parser.add_argument('--no_reload', action='store_true')

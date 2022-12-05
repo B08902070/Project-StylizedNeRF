@@ -3,21 +3,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import style_function as SF
-
-
+from VGG import decoder, vgg
 
 class NST_Net(nn.Module):
-    def __init__(self, encoder, decoder):
+    def __init__(self, encoder_pretrained_path):
         super(NST_Net, self).__init__()
-
+       
+        encoder = vgg.load_state_dict(torch.load(encoder_pretrained_path))
         encoder_layers = list(encoder.children())
         self.enc_layer1 = encoder_layers[:3]
         self.enc_layer2 = encoder_layers[3:8]
         self.enc_layer3 = encoder_layers[8:13]
         self.enc_layer4 = encoder_layers[13:22]
+
         self.decoder = decoder
 
         self.mse_loss = nn.MSELoss()
+
+    def load_decoder_state_dict(self, decoder_state_dict):
+        self.decoder.load_state_dict(decoder_state_dict)
 
     def encode(self, input_img):
         feats=[]
