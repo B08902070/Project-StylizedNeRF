@@ -11,7 +11,7 @@ import torch.nn as torch_nn
 from torch.autograd import Variable 
 from dataset import RaySampler, StyleRaySampler, StyleRaySampler_gen, LightDataLoader
 from learnable_latents import VAE, Learnable_Latents
-from nerf_related_modules import Style_NeRF, Style_Module
+from style_nerf import Style_NeRF, Style_Module
 from train_style_modules import train_temporal_invoke, train_temporal_invoke_pl
 from config import config_parser
 
