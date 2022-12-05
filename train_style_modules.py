@@ -240,8 +240,7 @@ def train_vae(args):
     writer = SummaryWriter(log_dir=str(log_dir))
 
     vgg = VGG.vgg
-    vgg.load_state_dict(torch.load('./pretrained/vgg_normalised.pth'))
-    vgg.load_state_dict(torch.load(args.vgg))
+    vgg.load_state_dict(torch.load(args.vgg_pretrained_path))
     vgg = nn.Sequential(*list(vgg.children())[:31])
     vgg.eval()
     vgg.to(device)
@@ -578,7 +577,6 @@ def write_ply_rgb(points, RGB, filename):
 
     el = PlyElement.describe(vertex, 'vertex', comments=['vertices'])
     PlyData([el], text=True).write(filename)
-
 
 def ndc2world(coor_ndc, h, w, focal):
     z = 2 / (coor_ndc[..., -1] - 1)
