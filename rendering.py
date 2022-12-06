@@ -1,7 +1,7 @@
 from utils import *
 
 
-def render(model_forward, samp_func, dataloader, args, device, sv_path=None, model_forward_fine=None, samp_func_fine=None):
+def render(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     """Render Scene into Images"""
     save_makedir(sv_path)
     dataset = dataloader.dataset
@@ -20,7 +20,7 @@ def render(model_forward, samp_func, dataloader, args, device, sv_path=None, mod
         pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=dataset.near, far=dataset.far)
         ray_num, pts_num = rays_o.shape[0], args.N_samples
         rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-        ret = model_forward(pts=pts, dirs=rays_d_forward)
+        ret = nerf_forward(pts=pts, dirs=rays_d_forward)
         pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
         rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, 0)
         # Gather outputs
@@ -32,7 +32,7 @@ def render(model_forward, samp_func, dataloader, args, device, sv_path=None, mod
             pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
             pts_num = args.N_samples + args.N_samples_fine
             rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-            ret = model_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+            ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
             pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
             rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, 0)
             # Gather outputs
@@ -85,7 +85,7 @@ def render(model_forward, samp_func, dataloader, args, device, sv_path=None, mod
     return rgb_map, t_map, rgb_map_fine, t_map_fine
 
 
-def render_train(samp_func, model_forward, dataset, args, device, sv_path=None, model_forward_fine=None, samp_func_fine=None):
+def render_train(samp_func, nerf_forward, dataset, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     save_makedir(sv_path)
     frame_num, h, w = dataset.frame_num, dataset.h, dataset.w
 
@@ -116,7 +116,7 @@ def render_train(samp_func, model_forward, dataset, args, device, sv_path=None, 
         rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
 
         # Forward and Composition
-        ret = model_forward(pts=pts, dirs=rays_d_forward)
+        ret = nerf_forward(pts=pts, dirs=rays_d_forward)
         pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
         rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, 0)
 
@@ -128,7 +128,7 @@ def render_train(samp_func, model_forward, dataset, args, device, sv_path=None, 
             pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
             pts_num = args.N_samples + args.N_samples_fine
             rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-            ret = model_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+            ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
             pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
             rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, 0)
             pred_rgb_fine.append(rgb_exp_fine.detach().numpy())
@@ -173,7 +173,7 @@ def render_train(samp_func, model_forward, dataset, args, device, sv_path=None, 
             pred_rgb_fine, pred_t_fine = [], []
 
 
-def cal_geometry(model_forward, samp_func, dataloader, args, device, sv_path=None, model_forward_fine=None, samp_func_fine=None):
+def cal_geometry(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     """Render Scene into Images"""
     save_makedir(sv_path)
     dataset = dataloader.dataset
@@ -195,7 +195,7 @@ def cal_geometry(model_forward, samp_func, dataloader, args, device, sv_path=Non
         pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=dataset.near, far=dataset.far)
         ray_num, pts_num = rays_o.shape[0], args.N_samples
         rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-        ret = model_forward(pts=pts, dirs=rays_d_forward)
+        ret = nerf_forward(pts=pts, dirs=rays_d_forward)
         pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
         rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, 0)
         # Gather outputs
@@ -206,7 +206,7 @@ def cal_geometry(model_forward, samp_func, dataloader, args, device, sv_path=Non
             pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
             pts_num = args.N_samples + args.N_samples_fine
             rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-            ret = model_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+            ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
             pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
             rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, 0)
             # Gather outputs
@@ -247,7 +247,7 @@ def cal_geometry(model_forward, samp_func, dataloader, args, device, sv_path=Non
     return rgb_map, t_map
 
 
-def render_style(model_forward, samp_func, style_forward, latents_model, dataloader, args, device, sv_path=None, model_forward_fine=None, samp_func_fine=None, sigma_scale=0.):
+def render_style(nerf_forward, samp_func, style_forward, latents_model, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None, sigma_scale=0.):
     """Render Scene into Images"""
     latents_model.rescale_sigma(sigma_scale=sigma_scale)
     save_makedir(sv_path)
@@ -271,7 +271,7 @@ def render_style(model_forward, samp_func, style_forward, latents_model, dataloa
         ray_num, pts_num = rays_o.shape[0], args.N_samples
         rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
         # Forward
-        ret = model_forward(pts=pts, dirs=rays_d_forward)
+        ret = nerf_forward(pts=pts, dirs=rays_d_forward)
         pts_sigma, pts_embed = ret['sigma'], ret['pts']
         # Stylize
         style_latents = latents_model(style_ids=style_id, frame_ids=frame_id)
@@ -292,7 +292,7 @@ def render_style(model_forward, samp_func, style_forward, latents_model, dataloa
             pts_num = args.N_samples + args.N_samples_fine
             rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
             # Forward
-            ret = model_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+            ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
             pts_sigma_fine, pts_embed_fine = ret['sigma'], ret['pts']
             # Stylize
             style_latents_forward = style_latents.unsqueeze(1).expand([ray_num, pts_num, style_latents.shape[-1]])
@@ -354,7 +354,7 @@ def render_style(model_forward, samp_func, style_forward, latents_model, dataloa
     return rgb_map, t_map, rgb_map_fine, t_map_fine
 
 
-def render_train_style(samp_func, model_forward, style_forward, latents_model, dataset, args, device, sv_path=None, model_forward_fine=None, samp_func_fine=None, sigma_scale=0.):
+def render_train_style(samp_func, nerf_forward, style_forward, latents_model, dataset, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None, sigma_scale=0.):
     save_makedir(sv_path)
     latents_model.rescale_sigma(sigma_scale=sigma_scale)
     frame_num, h, w = dataset.frame_num, dataset.h, dataset.w
@@ -397,7 +397,7 @@ def render_train_style(samp_func, model_forward, style_forward, latents_model, d
             rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
 
             # Forward
-            ret = model_forward(pts=pts, dirs=rays_d_forward)
+            ret = nerf_forward(pts=pts, dirs=rays_d_forward)
             pts_sigma, pts_embed = ret['sigma'], ret['pts']
             # Stylize
             style_latents = latents_model(style_ids=style_id, frame_ids=frame_id)
@@ -417,7 +417,7 @@ def render_train_style(samp_func, model_forward, style_forward, latents_model, d
                 pts_num = args.N_samples + args.N_samples_fine
                 rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
                 # Forward
-                ret = model_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+                ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
                 pts_sigma_fine, pts_embed_fine = ret['sigma'], ret['pts']
                 # Stylize
                 style_latents_forward = style_latents.unsqueeze(1).expand([ray_num, pts_num, style_latents.shape[-1]])

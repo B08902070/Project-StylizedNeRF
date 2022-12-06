@@ -20,23 +20,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train(args):
-
-    """Check Nerf Type"""
-    nerf_dict = {'style_nerf': Style_NeRF}
-    nerf_type_str = ''
-    for nerf_type in nerf_dict.keys():
-        nerf_type_str += (nerf_type + ' ')
-    assert args.nerf_type in nerf_dict.keys(), 'Unknown nerf type: ' + args.nerf_type + '. Only support: ' + nerf_type_str
-    print('Type of nerf: ', args.nerf_type)
-
-    """Style Module Type"""
-    style_module_dict = {'mlp': Style_Module}
-    style_type_str = ''
-    for style_type in style_module_dict.keys():
-        style_type_str += (style_type + ' ')
-    assert args.style_type in style_module_dict.keys(), 'Unknown style type: ' + args.style_type + '. Only support: ' + style_type_str
-    print('Type of style: ', args.style_type)
-
     """Latent Module Type"""
     latent_module_dict = {'variational': Learnable_Latents}
     latent_type_str = ''
@@ -64,17 +47,15 @@ def train(args):
     nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
 
     """Create Nerfs"""
-    nerf = nerf_dict[args.nerf_type]
-    model = nerf(args=args, mode='coarse')
-    model.train()
-    grad_vars = list(model.parameters())
-    model_forward = batchify(lambda **kwargs: model(**kwargs), args.chunk)
+    nerf = Style_NeRF(args=args, mode='coarse')
+    nerf.train()
+    grad_vars = list(nerf.parameters())
+    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
     if args.N_samples_fine > 0:
-        nerf_fine = nerf_dict[args.nerf_type_fine]
-        model_fine = nerf_fine(args=args, mode='fine')
-        model_fine.train()
-        grad_vars += list(model_fine.parameters())
-        model_forward_fine = batchify(lambda **kwargs: model_fine(**kwargs), args.chunk)
+        nerf_fine = Style_NeRF(args=args, mode='fine')
+        nerf_fine.train()
+        grad_vars += list(nerf_fine.parameters())
+        nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
     optimizer = nn.Adam(params=grad_vars, lr=args.lrate, betas=(0.9, 0.999))
 
     """Create Style Module"""
@@ -107,12 +88,12 @@ def train(args):
         print('Reloading Nerf Model from ', ckpt_path)
         ckpt = torch.load(ckpt_path)
         global_step = ckpt['global_step']
-        # Load model
-        model.load_state_dict(ckpt['model'])
+        # Load nerf
+        nerf.load_state_dict(ckpt['nerf'])
         # Load optimizer
         optimizer.load_state_dict(ckpt['optimizer'])
         if args.N_samples_fine > 0:
-            model_fine.load_state_dict((ckpt['model_fine']))
+            nerf_fine.load_state_dict((ckpt['nerf_fine']))
     ckpts_style = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' in f and 'latent' not in f]
     if len(ckpts_style) > 0 and not args.no_reload:
         ckpt_path_style = ckpts_style[-1]
@@ -126,14 +107,14 @@ def train(args):
         """Dataset Creation"""
         tmp_dataset = StyleRaySampler(data_path=args.datadir, style_path=args.styledir, factor=args.factor,
                                       mode='valid', valid_factor=args.gen_factor, dataset_type=args.dataset_type,
-                                      white_bkgd=args.white_bkgd, half_res=args.half_res, no_ndc=args.no_ndc,
+                                      white_bkgd=args.white_bkgd, half_res=args.half_nres, no_ndc=args.no_ndc,
                                       pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
         tmp_dataloader = DataLoader(tmp_dataset, args.batch_size_style, shuffle=False, num_workers=args.num_workers,
                                     pin_memory=(args.num_workers > 0))
         print("Preparing nerf data for style training ...")
-        cal_geometry(model_forward=model_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
+        cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
                      device=device,
-                     sv_path=nerf_gen_data_path, model_forward_fine=model_forward_fine,
+                     sv_path=nerf_gen_data_path, nerf_forward_fine=nerf_forward_fine,
                      samp_func_fine=samp_func_fine)
 
     """Train 2D Style"""
@@ -211,11 +192,11 @@ def train(args):
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
         with torch.no_grad():
             if args.N_samples_fine > 0:
-                rgb_map, t_map, rgb_map_fine, t_map_fine = render(model_forward=model_forward, samp_func=samp_func, dataloader=valid_dataloader,
-                                                                  args=args, device=device, sv_path=render_path, model_forward_fine=model_forward_fine,
+                rgb_map, t_map, rgb_map_fine, t_map_fine = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
+                                                                  args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine,
                                                                   samp_func_fine=samp_func_fine)
             else:
-                rgb_map, t_map, _, _ = render(model_forward=model_forward, samp_func=samp_func, dataloader=valid_dataloader,
+                rgb_map, t_map, _, _ = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
                                               args=args, device=device, sv_path=render_path)
         print('Done, saving', rgb_map.shape, t_map.shape)
         exit(0)
@@ -225,28 +206,28 @@ def train(args):
         render_path = os.path.join(sv_path, 'render_train_' + str(global_step))
         render_dataset = train_dataset
         if args.N_samples_fine > 0:
-            render_train(samp_func=samp_func, model_forward=model_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path, model_forward_fine=model_forward_fine, samp_func_fine=samp_func_fine)
+            render_train(samp_func=samp_func, nerf_forward=nerf_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
         else:
-            render_train(samp_func=samp_func, model_forward=model_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path)
+            render_train(samp_func=samp_func, nerf_forward=nerf_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path)
         exit(0)
 
     # Render valid style
     if args.render_valid_style:
         render_path = os.path.join(sv_path, 'render_valid_' + str(global_step))
         # Enable style
-        model.set_enable_style(True)
+        nerf.set_enable_style(True)
         if args.N_samples_fine > 0:
-            model_fine.set_enable_style(True)
+            nerf_fine.set_enable_style(True)
         valid_dataset = train_dataset
         valid_dataset.mode = 'valid_style'
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
         with torch.no_grad():
             if args.N_samples_fine > 0:
-                rgb_map, t_map, rgb_map_fine, t_map_fine = render_style(model_forward=model_forward, samp_func=samp_func, style_forward=style_forward, latents_model=latents_model,
+                rgb_map, t_map, rgb_map_fine, t_map_fine = render_style(nerf_forward=nerf_forward, samp_func=samp_func, style_forward=style_forward, latents_model=latents_model,
                                                                         dataloader=valid_dataloader, args=args, device=device, sv_path=render_path,
-                                                                        model_forward_fine=model_forward_fine, samp_func_fine=samp_func_fine, sigma_scale=args.sigma_scale)
+                                                                        nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine, sigma_scale=args.sigma_scale)
             else:
-                rgb_map, t_map, _, _ = render_style(model_forward=model_forward, samp_func=samp_func, style_forward=style_forward, latents_model=latents_model, dataloader=valid_dataloader,
+                rgb_map, t_map, _, _ = render_style(nerf_forward=nerf_forward, samp_func=samp_func, style_forward=style_forward, latents_model=latents_model, dataloader=valid_dataloader,
                                                     args=args, device=device, sv_path=render_path, sigma_scale=args.sigma_scale)
         print('Done, saving', rgb_map.shape, t_map.shape)
         return
@@ -255,15 +236,15 @@ def train(args):
     if args.render_train_style:
         render_path = os.path.join(sv_path, 'render_train_' + str(global_step))
         # Enable style
-        model.set_enable_style(True)
+        nerf.set_enable_style(True)
         if args.N_samples_fine > 0:
-            model_fine.set_enable_style(True)
+            nerf_fine.set_enable_style(True)
         render_dataset = train_dataset
         render_dataset.mode = 'train_style'
         if args.N_samples_fine > 0:
-            render_train_style(samp_func=samp_func, model_forward=model_forward, style_forward=style_forward, latents_model=latents_model, dataset=render_dataset, args=args, device=device, sv_path=render_path, model_forward_fine=model_forward_fine, samp_func_fine=samp_func_fine, sigma_scale=args.sigma_scale)
+            render_train_style(samp_func=samp_func, nerf_forward=nerf_forward, style_forward=style_forward, latents_model=latents_model, dataset=render_dataset, args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine, sigma_scale=args.sigma_scale)
         else:
-            render_train_style(samp_func=samp_func, model_forward=model_forward, style_forward=style_forward, latents_model=latents_model, dataset=render_dataset, args=args, device=device, sv_path=render_path, sigma_scale=args.sigma_scale)
+            render_train_style(samp_func=samp_func, nerf_forward=nerf_forward, style_forward=style_forward, latents_model=latents_model, dataset=render_dataset, args=args, device=device, sv_path=render_path, sigma_scale=args.sigma_scale)
         return
 
     # Training Loop
@@ -288,7 +269,7 @@ def train(args):
 
                 # Forward and Composition
                 forward_t = time.time()
-                ret = model_forward(pts=pts, dirs=rays_d_forward)
+                ret = nerf_forward(pts=pts, dirs=rays_d_forward)
                 pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
                 rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, args.sigma_noise_std)
 
@@ -303,7 +284,7 @@ def train(args):
                     # print(pts_fine)
                     pts_num = args.N_samples + args.N_samples_fine
                     rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-                    ret = model_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+                    ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
                     pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
                     rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, args.sigma_noise_std)
                     loss_rgb_fine = img2mse(rgb_gt, rgb_exp_fine)
@@ -351,15 +332,15 @@ def train(args):
                     if args.N_samples_fine > 0:
                         torch.save({
                             'global_step': global_step,
-                            'model': model.state_dict(),
-                            'model_fine': model_fine.state_dict(),
+                            'nerf': nerf.state_dict(),
+                            'nerf_fine': nerf_fine.state_dict(),
                             'optimizer': optimizer.state_dict(),
                             'style_optimizer': style_optimizer.state_dict()
                         }, path)
                     else:
                         torch.save({
                             'global_step': global_step,
-                            'model': model.state_dict(),
+                            'nerf': nerf.state_dict(),
                             'optimizer': optimizer.state_dict(),
                             'style_optimizer': style_optimizer.state_dict()
                         }, path)
@@ -409,10 +390,10 @@ def train(args):
         print('DataLoader Creation Done !')
 
         """Model Mode for Style"""
-        model.set_enable_style(True)
+        nerf.set_enable_style(True)
         if args.N_samples_fine > 0:
-            model_fine.set_enable_style(True)
-        model.eval()
+            nerf_fine.set_enable_style(True)
+        nerf.eval()
 
         latents_model.set_optimizer()
 
@@ -462,7 +443,7 @@ def train(args):
 
                 # Forward
                 forward_t = time.time()
-                ret = model_forward(pts=pts, dirs=rays_d_forward)
+                ret = nerf_forward(pts=pts, dirs=rays_d_forward)
                 pts_sigma, pts_embed = ret['sigma'], ret['pts']
                 # Stylize
                 style_latents = latents_model(style_ids=style_id, frame_ids=frame_id)
@@ -484,7 +465,7 @@ def train(args):
                     pts_num = args.N_samples + args.N_samples_fine
                     rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
                     # Forward
-                    ret = model_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+                    ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
                     pts_sigma_fine, pts_embed_fine = ret['sigma'], ret['pts']
                     # Stylize
                     style_latents_forward = style_latents.unsqueeze(1).expand([ray_num, pts_num, style_latents.shape[-1]])
