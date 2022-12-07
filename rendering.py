@@ -85,7 +85,7 @@ def render(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf
     return rgb_map, t_map, rgb_map_fine, t_map_fine
 
 
-def render_train(samp_func, nerf_forward, dataset, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
+def render_train(nerf_forward, samp_func, dataset, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     save_makedir(sv_path)
     frame_num, h, w = dataset.frame_num, dataset.h, dataset.w
 

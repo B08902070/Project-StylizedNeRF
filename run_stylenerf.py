@@ -14,30 +14,17 @@ from learnable_latents import VAE, Learnable_Latents
 from style_nerf import Style_NeRF, Style_Module
 from train_style_modules import train_temporal_invoke, train_temporal_invoke_pl
 from config import config_parser
+from nerf_helper import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 
 def train(args):
-    """Latent Module Type"""
-    latent_module_dict = {'variational': Learnable_Latents}
-    latent_type_str = ''
-    for latent_type in latent_module_dict.keys():
-        latent_type_str += (latent_type + ' ')
-    assert args.latent_type in latent_module_dict.keys(), 'Unknown latent type: ' + args.latent_type + '. Only support: ' + latent_type_str
-    print('Type of latent: ', args.latent_type)
-
-    """Check Sampling Type"""
-    samp_dict = {'uniform': sampling_pts_uniform}
-    samp_type_str = ''
-    for samp_type in samp_dict.keys():
-        samp_type_str += (samp_type + ' ')
-    assert args.sample_type in samp_dict.keys(), 'Unknown nerf type: ' + args.sample_type + '. Only support: ' + samp_type_str
-    print('Sampling Strategy: ', args.sample_type)
-    samp_func = samp_dict[args.sample_type]
+    """set sampling functions"""
+    samp_func = sampling_pts_uniform
     if args.N_samples_fine > 0:
-        samp_func_fine = sampling_pts_fine_jt
+        samp_func_fine = sampling_pts_fine
 
     """Saving Configuration"""
     use_viewdir_str = '_UseViewDir_' if args.use_viewdir else ''
@@ -59,8 +46,7 @@ def train(args):
     optimizer = nn.Adam(params=grad_vars, lr=args.lrate, betas=(0.9, 0.999))
 
     """Create Style Module"""
-    style = style_module_dict[args.style_type]
-    style_model = style(args)
+    style_model = Style_Module(args)
     style_model.train()
     style_vars = style_model.parameters()
     style_forward = batchify(lambda **kwargs: style_model(**kwargs), args.chunk)
@@ -157,8 +143,7 @@ def train(args):
         vae.load_state_dict(torch.load(vae_ckpt))
 
         """Latents Module"""
-        latent_model_class = latent_module_dict[args.latent_type]
-        latents_model = latent_model_class(style_num=train_dataset.style_num, frame_num=train_dataset.frame_num, latent_dim=args.vae_latent)
+        latents_model = Learnable_Latents(style_num=train_dataset.style_num, frame_num=train_dataset.frame_num, latent_dim=args.vae_latent)
         vae.to(device)
         latent_ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' in f]
         print('Found ckpts', latent_ckpts, ' from ', ckpts_path, ' For Latents Module.')
