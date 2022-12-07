@@ -17,7 +17,7 @@ from camera import Camera
 from learnable_latents import VAE
 from plyfile import PlyElement, PlyData
 from style_function import cal_mean_std
-from train_helper import *
+from style_module_helper import *
 
 
 def train_transform():
@@ -70,7 +70,7 @@ def finetune_decoder(args):
     optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)
 
     for i in tqdm(range(args.max_iter)):
-        adjust_learning_rate(optimizer, iteration_count=i)
+        adjust_learning_rate(args.lr, , args.lr_decay, optimizer, iteration_count=i)
         content_images = next(content_iter).to(device)
         style_images = next(style_iter).to(device)
         loss_c, loss_s = network(content_images, style_images)
@@ -162,7 +162,7 @@ def train_temporal_decoder(args):
 
     for i in tqdm(range(step, args.max_iter)):
 
-        adjust_learning_rate(optimizer, iteration_count=i)
+        adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)
         content_images, coor_maps, cps = next(content_iter)
         content_images, coor_maps, cps = content_images[..., patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
                                          coor_maps[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
@@ -261,7 +261,7 @@ def train_vae(args):
     optimizer = torch.optim.Adam(vae.parameters(), lr=args.lr)
 
     for i in tqdm(range(args.max_iter)):
-        adjust_learning_rate(optimizer, iteration_count=i)
+        adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)
         style_images = next(style_iter).to(device)
         style_features = vgg(style_images)
         style_mean, style_std = cal_mean_std(style_features)
@@ -348,12 +348,6 @@ def train_temporal_invoke(save_dir, sv_name, log_dir, is_ndc, nerf_content_dir, 
 
     space_dist_threshold = 5e-2
 
-    def adjust_learning_rate_local(optimizer, iteration_count):
-        """Imitating the original implementation"""
-        lr = 1e-4 / (1.0 + 5e-5 * iteration_count)
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-
     for i in tqdm(range(step, max_iter)):
         # Sampling Patch
         patch_size = 512
@@ -367,7 +361,7 @@ def train_temporal_invoke(save_dir, sv_name, log_dir, is_ndc, nerf_content_dir, 
         resample_layer = nn.Upsample(size=(int(patch_h_max - patch_h_min), int(patch_w_max - patch_w_min)),
                                      mode='bilinear', align_corners=True)
 
-        adjust_learning_rate_local(optimizer, iteration_count=i)
+        adjust_learning_rate(1e-4, 5e-5, optimizer, iteration_count=i)
         content_images, coor_maps, cps = next(content_iter)
         content_images, coor_maps, cps = content_images[..., patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
                                          coor_maps[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
@@ -485,12 +479,6 @@ def train_temporal_invoke_pl(save_dir, sv_name, log_dir, nerf_content_dir, style
 
     space_dist_threshold = 5e-2
 
-    def adjust_learning_rate_local(optimizer, iteration_count):
-        """Imitating the original implementation"""
-        lr = 1e-4 / (1.0 + 5e-5 * iteration_count)
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-
     for i in tqdm(range(step, max_iter)):
         # Sampling Patch
         patch_size = 512
@@ -504,7 +492,7 @@ def train_temporal_invoke_pl(save_dir, sv_name, log_dir, nerf_content_dir, style
         resample_layer = nn.Upsample(size=(int(patch_h_max - patch_h_min), int(patch_w_max - patch_w_min)),
                                      mode='bilinear', align_corners=True)
 
-        adjust_learning_rate_local(optimizer, iteration_count=i)
+        adjust_learning_rate(1e-4, 5e-5, optimizer, iteration_count=i)
         content_images, coor_maps, cps = content_dataset.get_batch(batch_size=batch_size)
         content_images, coor_maps, cps = content_images[..., patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\
                                          coor_maps[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max].to(device),\

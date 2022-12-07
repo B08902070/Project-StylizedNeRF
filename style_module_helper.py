@@ -1,7 +1,9 @@
 import numpy as np
+import torch
 import torch.utils.data as data
 import torchvision.transforms as transforms
 from PIL import Image
+from pathlib import Path
 
 def InfiniteSampler(n):
     # i = 0
@@ -139,8 +141,8 @@ class CoorImageDataset_pl(data.Dataset):
         return 'FlatFolderDataset'
 
 
-def adjust_learning_rate(optimizer, iteration_count):
+def adjust_learning_rate(lr, lr_decay, optimizer, iteration_count):
     """Imitating the original implementation"""
-    lr = args.lr / (1.0 + args.lr_decay * iteration_count)
+    lr = lr / (1.0 + lr_decay * iteration_count)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
