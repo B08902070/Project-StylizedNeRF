@@ -11,8 +11,7 @@ def config_parser():
                         help='where to store ckpts and logs')
 
     # data set options
-    parser.add_argument("--datadir", type=str, default='../../scan/seven_floor/',
-                        help='input data directory')
+    parser.add_argument("--datadir", type=str, help='input data directory')
     parser.add_argument("--styledir", type=str, default='./style/')
     parser.add_argument("--decoder_pth_path", type=str, default='./pretrained/decoder.pth')
     parser.add_argument("--vgg_pth_path", type=str, default='./pretrained/vgg_normalised.pth')
@@ -95,9 +94,9 @@ def config_parser():
                         help='batch size (number of random rays per gradient step)')
     parser.add_argument("--batch_size_style", type=int, default=1024,
                         help='batch size (number of random rays per gradient step)')
-    parser.add_argument("--lrate", type=float, default=5e-4,
+    parser.add_argument("--lr", type=float, default=5e-4,
                         help='learning rate')
-    parser.add_argument("--lrate_decay", type=int, default=100000,
+    parser.add_argument("--lr_decay", type=int, default=100000,
                         help='exponential learning rate decay (in 1000 steps)')
     parser.add_argument("--chunk", type=int, default=1024*32,
                         help='number of rays processed in parallel, decrease if running out of memory')

@@ -11,7 +11,6 @@ from pathlib import Path
 from torchvision import transforms
 from torch.utils.data import Dataset
 
-
 import VGG
 from nst_net import NST_Net
 from load_llff import load_llff_data
@@ -96,7 +95,6 @@ def ndc_rays(H, W, focal, near, rays_o, rays_d):
 
     return rays_o, rays_d
 
-
 def ndc_rays_np(H, W, focal, near, rays_o, rays_d):
     # Shift ray origins to near plane
     t = -(near + rays_o[..., 2]) / rays_d[..., 2]
@@ -116,6 +114,7 @@ def ndc_rays_np(H, W, focal, near, rays_o, rays_d):
 
     return rays_o, rays_d
 
+
 def image_transform(size, crop=False):
     transform_list = []
     if size != 0:
@@ -127,27 +126,19 @@ def image_transform(size, crop=False):
     return transform
 
 
-
 def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=None, decode_path='./pretrained/decoder.pth', save_geo=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    """VGG and Decoder"""
-    decoder = VGG.decoder
-    vgg = VGG.vgg
-    decoder.eval()
-    vgg.eval()
-    print('Load decoder from ', decode_path)
+    """nst net"""
+    encoder_path = './pretrained/vgg_normalised.pth'
+    nst_net = NST_Net(encoder_pretrained_path=encoder_path)
     decoder_data = torch.load(decode_path)
     if 'decoder' in decoder_data.keys():
-        decoder.load_state_dict(decoder_data['decoder'])
+        nst_net.load_decoder_state_dict(decoder_data['decoder'])
     else:
-        decoder.load_state_dict(decoder_data)
-    vgg.load_state_dict(torch.load('./pretrained/vgg_normalised.pth'))
-    vgg = nn.Sequential(*list(vgg.children())[:31])
-    vgg.to(device)
-    decoder.to(device)
-    nst_net = NST_Net(vgg, decoder)
+        nst_net.load_decoder_state_dict(decoder_data)
     nst_net.eval()
+    nst_net.to(device)
 
     images_path = glob.glob(style_path + '/*.png') + glob.glob(style_path + '/*.jpg') + glob.glob(style_path + '/*.jpeg') + glob.glob(style_path + '/*.JPG') + glob.glob(style_path + '/*.PNG')
     print(style_path, images_path)
@@ -199,7 +190,6 @@ class RaySampler(Dataset):
     def __init__(self, data_path, factor=2., mode='train', valid_factor=3, dataset_type='llff', white_bkgd=False, half_res=True, no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
         super().__init__()
 
-        K = None
         if dataset_type == 'llff':
             images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
             hwf = poses[0, :3, -1]
@@ -222,12 +212,11 @@ class RaySampler(Dataset):
         H, W = int(H), int(W)
         hwf = [H, W, focal]
 
-        if K is None:
-            K = np.array([
-                [focal, 0, 0.5*W],
-                [0, focal, 0.5*H],
-                [0, 0, 1]
-            ])
+        K = np.array([
+            [focal, 0, 0.5*W],
+            [0, focal, 0.5*H],
+            [0, 0, 1]
+        ])
 
         """Validation Rays"""
         cps = np.concatenate([poses[:, :3, :4], np.zeros_like(poses[:, :1, :])], axis=1)
@@ -312,10 +301,9 @@ class RaySampler(Dataset):
 
 
 class StyleRaySampler(Dataset):
-    def __init__(self, data_path, style_path, factor=2., mode='train', valid_factor=3, dataset_type='llff', white_bkgd=False, half_res=True, no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
+    def __init__(self, data_path, style_path, factor=2., mode='train', valid_factor=3, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
         super().__init__()
 
-        K = None
         if dataset_type == 'llff':
             images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
             hwf = poses[0, :3, -1]
@@ -338,12 +326,11 @@ class StyleRaySampler(Dataset):
         H, W = int(H), int(W)
         hwf = [H, W, focal]
 
-        if K is None:
-            K = np.array([
-                [focal, 0, 0.5*W],
-                [0, focal, 0.5*H],
-                [0, 0, 1]
-            ])
+        K = np.array([
+               [focal, 0, 0.5*W],
+               [0, focal, 0.5*H],
+               [0, 0, 1]
+           ])
 
         """Validation Rays"""
         cps = np.concatenate([poses[:, :3, :4], np.zeros_like(poses[:, :1, :])], axis=1)
@@ -490,7 +477,7 @@ def get_rays_from_id(hid, wid, focal, c2w, cx=None, cy=None):
 
 
 class StyleRaySampler_gen(Dataset):
-    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, dataset_type='llff', white_bkgd=False, half_res=True, no_ndc=False, pixel_alignment=False, spherify=False, decode_path='./pretrained/decoder.pth', store_rays=True, TT_far=4., collect_stylized_images=True):
+    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, decode_path='./pretrained/decoder.pth', store_rays=True, TT_far=4., collect_stylized_images=True):
         super().__init__()
 
         K = None

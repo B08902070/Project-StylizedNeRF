@@ -12,7 +12,7 @@ from torch.autograd import Variable
 from dataset import RaySampler, StyleRaySampler, StyleRaySampler_gen, LightDataLoader
 from learnable_latents import VAE, Learnable_Latents
 from style_nerf import Style_NeRF, Style_Module
-from train_style_modules import train_temporal_invoke, train_temporal_invoke_pl
+from train_style_modules import train_temporal_invoke
 from config import config_parser
 from nerf_helper import *
 
@@ -43,25 +43,14 @@ def train(args):
         nerf_fine.train()
         grad_vars += list(nerf_fine.parameters())
         nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
-    optimizer = nn.Adam(params=grad_vars, lr=args.lrate, betas=(0.9, 0.999))
+    nerf_optimizer = nn.Adam(params=grad_vars, lr=args.lr, betas=(0.9, 0.999))
 
     """Create Style Module"""
     style_model = Style_Module(args)
     style_model.train()
     style_vars = style_model.parameters()
     style_forward = batchify(lambda **kwargs: style_model(**kwargs), args.chunk)
-    style_optimizer = nn.Adam(params=style_vars, lr=args.lrate, betas=(0.9, 0.999))
-
-    """VGG and Decoder"""
-    decoder = VGG.decoder
-    vgg = VGG.vgg
-    decoder.eval()
-    vgg.eval()
-    decoder.load_state_dict(torch.load('./pretrained/decoder.pth'))
-    vgg.load_state_dict(torch.load('./pretrained/vgg_normalised.pth'))
-    vgg = torch_nn.Sequential(*list(vgg.children())[:31])
-    vgg.to(device)
-    decoder.to(device)
+    style_optimizer = nn.Adam(params=style_vars, lr=args.lr, betas=(0.9, 0.999))
 
     """Load Check Point"""
     global_step = 0
@@ -77,7 +66,7 @@ def train(args):
         # Load nerf
         nerf.load_state_dict(ckpt['nerf'])
         # Load optimizer
-        optimizer.load_state_dict(ckpt['optimizer'])
+        nerf_optimizer.load_state_dict(ckpt['nerf_optimizer'])
         if args.N_samples_fine > 0:
             nerf_fine.load_state_dict((ckpt['nerf_fine']))
     ckpts_style = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' in f and 'latent' not in f]
@@ -89,21 +78,9 @@ def train(args):
         style_model.load_state_dict(ckpt_style['model'])
         style_optimizer.load_state_dict(ckpt_style['optimizer'])
 
-    def Prepare_Style_data(nerf_gen_data_path):
-        """Dataset Creation"""
-        tmp_dataset = StyleRaySampler(data_path=args.datadir, style_path=args.styledir, factor=args.factor,
-                                      mode='valid', valid_factor=args.gen_factor, dataset_type=args.dataset_type,
-                                      white_bkgd=args.white_bkgd, half_res=args.half_nres, no_ndc=args.no_ndc,
-                                      pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
-        tmp_dataloader = DataLoader(tmp_dataset, args.batch_size_style, shuffle=False, num_workers=args.num_workers,
-                                    pin_memory=(args.num_workers > 0))
-        print("Preparing nerf data for style training ...")
-        cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
-                     device=device,
-                     sv_path=nerf_gen_data_path, nerf_forward_fine=nerf_forward_fine,
-                     samp_func_fine=samp_func_fine)
+    
 
-    """Train 2D Style"""
+    """Train NSt Net"""
     if not global_step + 1 < args.origin_step:
         sv_name = '/decoder.pth'
         is_ndc = (args.dataset_type == 'llff' and not args.no_ndc)
@@ -111,12 +88,8 @@ def train(args):
             if not os.path.exists(nerf_gen_data_path):
                 Prepare_Style_data(nerf_gen_data_path=nerf_gen_data_path)
             print('Training 2D Style Module')
-            if args.dataset_type == 'llff':
-                train_temporal_invoke(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/', is_ndc=is_ndc,
-                                      nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
-            else:
-                train_temporal_invoke_pl(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/',
-                                         nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
+            train_temporal_invoke(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/', is_ndc=is_ndc,
+                                  nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
 
     """Dataset Creation"""
     if global_step + 1 < args.origin_step and not os.path.exists(nerf_gen_data_path):
@@ -125,7 +98,6 @@ def train(args):
                                    white_bkgd=args.white_bkgd, half_res=args.half_res, no_ndc=args.no_ndc,
                                    pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
     else:
-
         if not os.path.exists(nerf_gen_data_path):
             Prepare_Style_data(nerf_gen_data_path=nerf_gen_data_path)
         train_dataset = StyleRaySampler_gen(data_path=args.datadir, gen_path=nerf_gen_data_path, style_path=args.styledir,
@@ -276,7 +248,7 @@ def train(args):
                     loss = loss + loss_rgb_fine
 
                 # Backward and Optimize
-                optimizer.step(loss)
+                nerf_optimizer.step(loss)
 
                 if global_step % args.i_print == 0:
                     psnr = mse2psnr(loss_rgb)
@@ -299,10 +271,10 @@ def train(args):
 
                 # Update Learning Rate
                 decay_rate = 0.1
-                decay_steps = args.lrate_decay
-                new_lrate = args.lrate * (decay_rate ** (global_step / decay_steps))
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = new_lrate
+                decay_steps = args.lr_decay
+                new_lr = args.lr * (decay_rate ** (global_step / decay_steps))
+                for param_group in nerf_optimizer.param_groups:
+                    param_group['lr'] = new_lr
 
                 # Time Measuring
                 end_t = time.time()
@@ -319,14 +291,14 @@ def train(args):
                             'global_step': global_step,
                             'nerf': nerf.state_dict(),
                             'nerf_fine': nerf_fine.state_dict(),
-                            'optimizer': optimizer.state_dict(),
+                            'nerf_optimizer': nerf_optimizer.state_dict(),
                             'style_optimizer': style_optimizer.state_dict()
                         }, path)
                     else:
                         torch.save({
                             'global_step': global_step,
                             'nerf': nerf.state_dict(),
-                            'optimizer': optimizer.state_dict(),
+                            'nerf_optimizer': nerf_optimizer.state_dict(),
                             'style_optimizer': style_optimizer.state_dict()
                         }, path)
                     print('Saved checkpoints at', path)
@@ -345,21 +317,14 @@ def train(args):
         data_time, model_time, opt_time = 0, 0, 0
         fine_time = 0
 
-        """VGG Net"""
-        decoder = VGG.decoder
-        vgg = VGG.vgg
-
+        """NST Net"""
+        nst_net = NST_Net(args.vgg_pth_path)
         decoder_data = torch.load(sv_path+'/decoder.pth')
         if 'decoder' in decoder_data.keys():
-            decoder.load_state_dict(decoder_data['decoder'])
+            nst_net.load_decoder_state_dict(decoder_data['decoder'])
         else:
-            decoder.load_state_dict(decoder_data)
-        vgg.load_state_dict(torch.load(args.vgg_pth_path))
-        vgg = torch_nn.Sequential(*list(vgg.children())[:31])
-        style_net = NST_Net(vgg, decoder)
-        # style_net.eval()
-        style_net.to(device)
-        # decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=1e-7)
+            nst_net.load_decoder_state_dict(decoder_data)
+        nst_net.to(device)
 
         """Dataset Mode for Style"""
         if not type(train_dataset) is StyleRaySampler_gen:
@@ -484,10 +449,10 @@ def train(args):
 
                 # Update Learning Rate
                 decay_rate = 0.1
-                decay_steps = args.lrate_decay
-                new_lrate = args.lrate * (decay_rate ** ((global_step - args.origin_step) / decay_steps))
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = new_lrate
+                decay_steps = args.lr_decay
+                new_lr = args.lr * (decay_rate ** ((global_step - args.origin_step) / decay_steps))
+                for param_group in nerf_optimizer.param_groups:
+                    param_group['lr'] = new_lr
 
                 # Time Measuring
                 end_t = time.time()
@@ -548,12 +513,8 @@ def train(args):
         sv_name = '/decoder.pth'
         is_ndc = (args.dataset_type == 'llff' and not args.no_ndc)
         if not os.path.exists(sv_path + sv_name):
-            if args.dataset_type == 'llff':
-                train_temporal_invoke(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/', is_ndc=is_ndc,
-                                      nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
-            else:
-                train_temporal_invoke_pl(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/',
-                                         nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
+            train_temporal_invoke(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/', is_ndc=is_ndc,
+                                  nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
 
         if not os.path.exists(nerf_gen_data_path):
             Prepare_Style_data(nerf_gen_data_path=nerf_gen_data_path)

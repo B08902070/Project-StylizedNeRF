@@ -1,5 +1,79 @@
 from utils import *
 
+def cal_geometry(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
+    """Render Scene into Images"""
+    save_makedir(sv_path)
+    dataset = dataloader.dataset
+    cps = dataset.cps if 'train' in dataset.mode else dataset.cps_valid
+    hwf = dataset.hwf
+    near, far = dataset.near, dataset.far
+    frame_num, h, w = dataset.frame_num if 'train' in dataset.mode else dataset.cps_valid.shape[0], dataset.h, dataset.w
+    resolution = h * w
+    img_id, pixel_id = 0, 0
+    rgb_map, t_map = np.zeros([frame_num*h*w, 3], dtype=np.float32), np.zeros([frame_num*h*w], dtype=np.float32)
+    coor_map = np.zeros([frame_num*h*w, 3], dtype=np.float32)
+    for batch_idx, batch_data in enumerate(tqdm(dataloader)):
+        # To Device as Tensor
+        for key in batch_data:
+            batch_data[key] = torch.array(batch_data[key].numpy())
+
+        # Get data and forward
+        rays_o, rays_d = batch_data['rays_o'], batch_data['rays_d']
+        pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=dataset.near, far=dataset.far)
+        ray_num, pts_num = rays_o.shape[0], args.N_samples
+        rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
+        ret = nerf_forward(pts=pts, dirs=rays_d_forward)
+        pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
+        rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, 0)
+        # Gather outputs
+        if not args.N_samples > 0:
+            rgb_exp_tmp, t_exp_tmp = rgb_exp.detach().numpy(), t_exp.detach().numpy()
+            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.numpy() + rays_o.numpy()
+        else:
+            pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
+            pts_num = args.N_samples + args.N_samples_fine
+            rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
+            ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+            pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
+            rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, 0)
+            # Gather outputs
+            rgb_exp_tmp, t_exp_tmp = rgb_exp_fine.detach().numpy(), t_exp_fine.detach().numpy()
+            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.numpy() + rays_o.numpy()
+
+        batch_size = coor_tmp.shape[0]
+        rgb_map[pixel_id: pixel_id+batch_size] = rgb_exp_tmp
+        t_map[pixel_id: pixel_id+batch_size] = t_exp_tmp
+        coor_map[pixel_id: pixel_id+batch_size] = coor_tmp
+        pixel_id += batch_size
+
+        # Write to svpath
+        img_num_gathered = (pixel_id // resolution) - img_id
+        if img_num_gathered > 0 and sv_path is not None:
+            sv_rgb = np.array(rgb_map[img_id * resolution: (img_id + img_num_gathered) * resolution], np.float32).reshape([img_num_gathered, h, w, 3])
+            sv_t = np.array(t_map[img_id * resolution: (img_id + img_num_gathered) * resolution], np.float32).reshape([img_num_gathered, -1])
+            sv_coor_map = np.array(coor_map[img_id * resolution: (img_id + img_num_gathered) * resolution], np.float32).reshape([img_num_gathered, h, w, 3])
+            sv_t = (sv_t - np.min(sv_t, axis=1, keepdims=True)) / (np.max(sv_t, axis=1, keepdims=True) - np.min(sv_t, axis=1, keepdims=True) + 1e-7)
+            sv_t = sv_t.reshape([img_num_gathered, h, w])
+            sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
+            for i in range(img_num_gathered):
+                imageio.imwrite(sv_path + '/rgb_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
+                imageio.imwrite(sv_path + '/depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
+                np.savez(sv_path + '/geometry_%05d' % (i + img_id), coor_map=sv_coor_map[i], cps=cps[i + img_id], hwf=hwf, near=near, far=far)
+            img_id += img_num_gathered
+
+    rgb_map, t_map = np.array(rgb_map).reshape([-1, h, w, 3]), np.array(t_map).reshape([-1, h, w, 1])
+    coor_map = np.array(coor_map).reshape([-1, h, w, 3])
+    np.savez(sv_path + '/geometry', coor_map=coor_map, cps=cps, hwf=hwf, near=near, far=far)
+
+    t_map_show = np.broadcast_to(t_map, [t_map.shape[0], h, w, 3])
+    t_map_show = (t_map_show - t_map_show.min()) / (t_map_show.max() - t_map_show.min() + 1e-10)
+    if sv_path is not None:
+        imageio.mimwrite(sv_path + '/rgb.mp4', to8b(rgb_map), fps=30, quality=8)
+        imageio.mimwrite(sv_path + '/depth.mp4', to8b(t_map_show), fps=30, quality=8)
+
+    return rgb_map, t_map
+
+
 
 def render(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     """Render Scene into Images"""
@@ -83,7 +157,6 @@ def render(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf
             imageio.mimwrite(sv_path + '/fine_depth.mp4', to8b(t_map_show), fps=30, quality=8)
 
     return rgb_map, t_map, rgb_map_fine, t_map_fine
-
 
 def render_train(nerf_forward, samp_func, dataset, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     save_makedir(sv_path)
@@ -171,81 +244,6 @@ def render_train(nerf_forward, samp_func, dataset, args, device, sv_path=None, n
             iter = 0
             pred_rgb, gt_rgb, pred_t, gt_t, depth_masks = [], [], [], [], []
             pred_rgb_fine, pred_t_fine = [], []
-
-
-def cal_geometry(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
-    """Render Scene into Images"""
-    save_makedir(sv_path)
-    dataset = dataloader.dataset
-    cps = dataset.cps if 'train' in dataset.mode else dataset.cps_valid
-    hwf = dataset.hwf
-    near, far = dataset.near, dataset.far
-    frame_num, h, w = dataset.frame_num if 'train' in dataset.mode else dataset.cps_valid.shape[0], dataset.h, dataset.w
-    resolution = h * w
-    img_id, pixel_id = 0, 0
-    rgb_map, t_map = np.zeros([frame_num*h*w, 3], dtype=np.float32), np.zeros([frame_num*h*w], dtype=np.float32)
-    coor_map = np.zeros([frame_num*h*w, 3], dtype=np.float32)
-    for batch_idx, batch_data in enumerate(tqdm(dataloader)):
-        # To Device as Tensor
-        for key in batch_data:
-            batch_data[key] = torch.array(batch_data[key].numpy())
-
-        # Get data and forward
-        rays_o, rays_d = batch_data['rays_o'], batch_data['rays_d']
-        pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=dataset.near, far=dataset.far)
-        ray_num, pts_num = rays_o.shape[0], args.N_samples
-        rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-        ret = nerf_forward(pts=pts, dirs=rays_d_forward)
-        pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
-        rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, 0)
-        # Gather outputs
-        if not args.N_samples > 0:
-            rgb_exp_tmp, t_exp_tmp = rgb_exp.detach().numpy(), t_exp.detach().numpy()
-            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.numpy() + rays_o.numpy()
-        else:
-            pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
-            pts_num = args.N_samples + args.N_samples_fine
-            rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-            ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
-            pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
-            rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, 0)
-            # Gather outputs
-            rgb_exp_tmp, t_exp_tmp = rgb_exp_fine.detach().numpy(), t_exp_fine.detach().numpy()
-            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.numpy() + rays_o.numpy()
-
-        batch_size = coor_tmp.shape[0]
-        rgb_map[pixel_id: pixel_id+batch_size] = rgb_exp_tmp
-        t_map[pixel_id: pixel_id+batch_size] = t_exp_tmp
-        coor_map[pixel_id: pixel_id+batch_size] = coor_tmp
-        pixel_id += batch_size
-
-        # Write to svpath
-        img_num_gathered = (pixel_id // resolution) - img_id
-        if img_num_gathered > 0 and sv_path is not None:
-            sv_rgb = np.array(rgb_map[img_id * resolution: (img_id + img_num_gathered) * resolution], np.float32).reshape([img_num_gathered, h, w, 3])
-            sv_t = np.array(t_map[img_id * resolution: (img_id + img_num_gathered) * resolution], np.float32).reshape([img_num_gathered, -1])
-            sv_coor_map = np.array(coor_map[img_id * resolution: (img_id + img_num_gathered) * resolution], np.float32).reshape([img_num_gathered, h, w, 3])
-            sv_t = (sv_t - np.min(sv_t, axis=1, keepdims=True)) / (np.max(sv_t, axis=1, keepdims=True) - np.min(sv_t, axis=1, keepdims=True) + 1e-7)
-            sv_t = sv_t.reshape([img_num_gathered, h, w])
-            sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
-            for i in range(img_num_gathered):
-                imageio.imwrite(sv_path + '/rgb_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
-                imageio.imwrite(sv_path + '/depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
-                np.savez(sv_path + '/geometry_%05d' % (i + img_id), coor_map=sv_coor_map[i], cps=cps[i + img_id], hwf=hwf, near=near, far=far)
-            img_id += img_num_gathered
-
-    rgb_map, t_map = np.array(rgb_map).reshape([-1, h, w, 3]), np.array(t_map).reshape([-1, h, w, 1])
-    coor_map = np.array(coor_map).reshape([-1, h, w, 3])
-    np.savez(sv_path + '/geometry', coor_map=coor_map, cps=cps, hwf=hwf, near=near, far=far)
-
-    t_map_show = np.broadcast_to(t_map, [t_map.shape[0], h, w, 3])
-    t_map_show = (t_map_show - t_map_show.min()) / (t_map_show.max() - t_map_show.min() + 1e-10)
-    if sv_path is not None:
-        imageio.mimwrite(sv_path + '/rgb.mp4', to8b(rgb_map), fps=30, quality=8)
-        imageio.mimwrite(sv_path + '/depth.mp4', to8b(t_map_show), fps=30, quality=8)
-
-    return rgb_map, t_map
-
 
 def render_style(nerf_forward, samp_func, style_forward, latents_model, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None, sigma_scale=0.):
     """Render Scene into Images"""

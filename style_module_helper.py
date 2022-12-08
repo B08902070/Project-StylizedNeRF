@@ -5,6 +5,10 @@ import torchvision.transforms as transforms
 from PIL import Image
 from pathlib import Path
 
+from rendering import cal_geometry
+from dataset import StyleRaySampler
+
+
 def InfiniteSampler(n):
     # i = 0
     i = n - 1
@@ -146,3 +150,4 @@ def adjust_learning_rate(lr, lr_decay, optimizer, iteration_count):
     lr = lr / (1.0 + lr_decay * iteration_count)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
