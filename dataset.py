@@ -272,15 +272,6 @@ class RaySampler(Dataset):
         ray_d = self.rays_d[frame_id, hid, wid]
         return {'rays_o': ray_o, 'rays_d': ray_d}
 
-    def get_patch_train(self, fid, hid, wid, patch_size=32):
-        min_hid, min_wid = int(min(max(hid - patch_size / 2, 0), self.h - patch_size)), int(min(max(wid - patch_size / 2, 0), self.w - patch_size))
-        max_hid, max_wid = min_hid + patch_size, min_wid + patch_size
-        hids, wids = np.meshgrid(np.arange(min_hid, max_hid), np.arange(min_wid, max_wid))
-        hids, wids = hids.reshape([-1]), wids.reshape([-1])
-        rgbs = torch.from_numpy(np.stack([self.images[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        rays_o = torch.from_numpy(np.stack([self.rays_o[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        rays_d = torch.from_numpy(np.stack([self.rays_d[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        return {'rgb_gt': rgbs, 'ray_o': rays_o, 'rays_d': rays_d}
 
     def set_mode(self, mode='train'):
         modes = ['train', 'valid', 'train_style', 'valid_style']
@@ -424,26 +415,6 @@ class StyleRaySampler(Dataset):
         style_image = torch.from_numpy(self.style_images[style_id]).float()
         return {'rays_o': ray_o, 'rays_d': ray_d, 'style_image': style_image, 'style_id': style_id, 'frame_id': frame_id}
 
-    def get_patch_train(self, fid, hid, wid, patch_size=32):
-        min_hid, min_wid = int(min(max(hid - patch_size / 2, 0), self.h - patch_size)), int(min(max(wid - patch_size / 2, 0), self.w - patch_size))
-        max_hid, max_wid = min_hid + patch_size, min_wid + patch_size
-        hids, wids = np.meshgrid(np.arange(min_hid, max_hid), np.arange(min_wid, max_wid))
-        hids, wids = hids.reshape([-1]), wids.reshape([-1])
-        rgbs = torch.from_numpy(np.stack([self.images[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        rays_o = torch.from_numpy(np.stack([self.rays_o[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        rays_d = torch.from_numpy(np.stack([self.rays_d[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        return {'rgb_gt': rgbs, 'ray_o': rays_o, 'rays_d': rays_d}
-
-    def get_patch_train_style(self, style_id, fid, min_hid, min_wid, patch_size=32):
-        max_hid, max_wid = min_hid + patch_size, min_wid + patch_size
-        rgbs_origin = torch.from_numpy(self.images[fid, min_hid: max_hid, min_wid: max_wid]).float()
-        style_image = torch.from_numpy(self.style_images[style_id]).float()
-        rays_o = torch.from_numpy(self.rays_o[fid, min_hid: max_hid, min_wid: max_wid]).float()
-        rays_d = torch.from_numpy(self.rays_d[fid, min_hid: max_hid, min_wid: max_wid]).float()
-        style_id = torch.tensor(style_id).expand([patch_size**2]).long()
-        frame_id = torch.tensor(fid).expand([patch_size**2]).long()
-        content_image = torch.from_numpy(self.images[frame_id]).float()
-        return {'style_image': style_image, 'content_image': content_image, 'rays_o': rays_o, 'rays_d': rays_d, 'rgb_origin': rgbs_origin, 'style_id': style_id, 'frame_id': frame_id}
 
     def set_mode(self, mode='train'):
         modes = ['train', 'valid', 'train_style', 'valid_style']
@@ -658,50 +629,7 @@ class StyleRaySampler_gen(Dataset):
                 ray_o, ray_d = ndc_rays_np(self.h, self.w, self.f, 1., ray_o[np.newaxis], ray_d[np.newaxis])
                 ray_o, ray_d = ray_o[0], ray_d[0]
         return {'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'style_id': style_id, 'frame_id': frame_id}
-
-    def get_patch_train(self, fid, hid, wid, patch_size=32):
-        min_hid, min_wid = int(min(max(hid - patch_size / 2, 0), self.h - patch_size)), int(min(max(wid - patch_size / 2, 0), self.w - patch_size))
-        max_hid, max_wid = min_hid + patch_size, min_wid + patch_size
-        hids, wids = np.meshgrid(np.arange(min_hid, max_hid), np.arange(min_wid, max_wid))
-        hids, wids = hids.reshape([-1]), wids.reshape([-1])
-        rgbs = torch.from_numpy(np.stack([self.images[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        if self.store_rays:
-            rays_o = np.stack([self.rays_o[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)
-            rays_d = np.stack([self.rays_d[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)
-        else:
-            rays_od = np.stack([get_rays_from_id(hids[i], wids[i], self.f, self.cps[fid], self.cx, self.cy) for i in range(hids.shape[0])])
-            rays_o, rays_d = rays_od[:, 0], rays_od[:, 1]
-            if self.is_ndc:
-                rays_o, rays_d = ndc_rays_np(self.h, self.w, self.f, 1., rays_o, rays_d)
-        rays_o = torch.from_numpy(rays_o).float()
-        rays_d = torch.from_numpy(rays_d).float()
-        return {'rgb_gt': rgbs, 'ray_o': rays_o, 'rays_d': rays_d}
-
-    def get_patch_train_style(self, style_id, fid, hid, wid, patch_size=32):
-        min_hid, min_wid = int(min(max(hid - patch_size / 2, 0), self.h - patch_size)), int(min(max(wid - patch_size / 2, 0), self.w - patch_size))
-        max_hid, max_wid = min_hid + patch_size, min_wid + patch_size
-        hids, wids = np.meshgrid(np.arange(min_hid, max_hid), np.arange(min_wid, max_wid))
-        hids, wids = hids.T.reshape([-1]), wids.T.reshape([-1])  # .T to keep the orientation of the image
-        if self.stylized_images_uint8 is None:
-            stylized_contents = np.load(self.style_paths[style_id] + '/%03d.npz' % fid)['stylized_image']
-            rgbs = torch.from_numpy(np.stack([stylized_contents[hids[i], wids[i]] for i in range(patch_size ** 2)], axis=0)).float()
-        else:
-            rgbs = torch.from_numpy(np.stack([np.float32(self.stylized_images_uint8[style_id, fid, hids[i], wids[i]]) / 255 for i in range(patch_size ** 2)], axis=0)).float()
-        rgbs_origin = torch.from_numpy(np.stack([self.images[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)).float()
-        if self.store_rays:
-            rays_o = np.stack([self.rays_o[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)
-            rays_d = np.stack([self.rays_d[fid, hids[i], wids[i]] for i in range(hids.shape[0])], axis=0)
-        else:
-            rays_od = np.stack([get_rays_from_id(hids[i], wids[i], self.f, self.cps[fid], self.cx, self.cy) for i in range(hids.shape[0])])
-            rays_o, rays_d = rays_od[:, 0], rays_od[:, 1]
-            if self.is_ndc:
-                rays_o, rays_d = ndc_rays_np(self.h, self.w, self.f, 1., rays_o, rays_d)
-        rays_o = torch.from_numpy(rays_o).float()
-        rays_d = torch.from_numpy(rays_d).float()
-        style_image = torch.from_numpy(self.style_images[style_id:style_id+1]).float()
-        style_id = torch.tensor(style_id).expand([patch_size**2]).long()
-        frame_id = torch.tensor(fid).expand([patch_size**2]).long()
-        return {'style_image': style_image, 'rgb_gt': rgbs, 'rays_o': rays_o, 'rays_d': rays_d, 'rgb_origin': rgbs_origin, 'style_id': style_id, 'frame_id': frame_id}
+  
 
     def set_mode(self, mode='train'):
         modes = ['train', 'valid', 'train_style', 'valid_style']

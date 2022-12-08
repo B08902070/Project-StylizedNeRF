@@ -5,8 +5,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 from pathlib import Path
 
-from rendering import cal_geometry
-from dataset import StyleRaySampler
 
 
 def InfiniteSampler(n):

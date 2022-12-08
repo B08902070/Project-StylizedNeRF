@@ -1,26 +1,38 @@
 import time
 import shutil
-import VGG
 from nst_net import NST_Net
 from rendering import *
 
 import torch
 from torch import nn
 
-import torch.nn as torch_nn
 from torch.autograd import Variable 
-from dataset import RaySampler, StyleRaySampler, StyleRaySampler_gen, LightDataLoader
+from dataset import RaySampler, StyleRaySampler_gen, LightDataLoader
 from learnable_latents import VAE, Learnable_Latents
 from style_nerf import Style_NeRF, Style_Module
-from train_style_modules import train_temporal_invoke
 from config import config_parser
 from nerf_helper import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def check_nst_preprocess(args, nerf_gen_data_path, sv_path):
+    """check  nerf gen data"""
+    if not os.path.exists(nerf_gen_data_path):
+        train_decoder_nerf_cmd = './python3 train_style_modules.py --task decoder_with_nerf'
+        print('{} does not exist, please run {} first.'.format(nerf_gen_data_path, train_decoder_nerf_cmd))
+        exit(0)
+
+    """check decoder"""
+    sv_name = '/decoder.pth'
+    if not os.path.exists(sv_path + sv_name):
+        finetune_decoder_cmd = './python3 train_style_modules.py --task finetune_decoder'
+        print('{} does not exist, please run {} first.'.format(sv_path+sv_name, finetune_decoder_cmd))
+        exit(0)
+
 
 
 def train(args):
+
     """set sampling functions"""
     samp_func = sampling_pts_uniform
     if args.N_samples_fine > 0:
@@ -80,17 +92,6 @@ def train(args):
 
     
 
-    """Train NSt Net"""
-    if not global_step + 1 < args.origin_step:
-        sv_name = '/decoder.pth'
-        is_ndc = (args.dataset_type == 'llff' and not args.no_ndc)
-        if not os.path.exists(sv_path + sv_name):
-            if not os.path.exists(nerf_gen_data_path):
-                Prepare_Style_data(nerf_gen_data_path=nerf_gen_data_path)
-            print('Training 2D Style Module')
-            train_temporal_invoke(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/', is_ndc=is_ndc,
-                                  nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
-
     """Dataset Creation"""
     if global_step + 1 < args.origin_step and not os.path.exists(nerf_gen_data_path):
         train_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
@@ -98,8 +99,6 @@ def train(args):
                                    white_bkgd=args.white_bkgd, half_res=args.half_res, no_ndc=args.no_ndc,
                                    pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
     else:
-        if not os.path.exists(nerf_gen_data_path):
-            Prepare_Style_data(nerf_gen_data_path=nerf_gen_data_path)
         train_dataset = StyleRaySampler_gen(data_path=args.datadir, gen_path=nerf_gen_data_path, style_path=args.styledir,
                                             factor=args.factor,
                                             mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
@@ -130,7 +129,6 @@ def train(args):
             # Calculate and Initialize Style Latents
             all_style_features = torch.from_numpy(train_dataset.style_features).float().to(device)
             _, style_latents_mu, style_latents_logvar = vae.encode(all_style_features)
-            # all_style_latents = all_style_latents_mu
             # Set Latents
             latents_model.style_latents_mu = Variable(style_latents_mu.detach().cpu().numpy())
             latents_model.style_latents_logvar = Variable(style_latents_logvar.detach().cpu().numpy())
@@ -149,9 +147,9 @@ def train(args):
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
         with torch.no_grad():
             if args.N_samples_fine > 0:
-                rgb_map, t_map, rgb_map_fine, t_map_fine = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
-                                                                  args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine,
-                                                                  samp_func_fine=samp_func_fine)
+                rgb_map, t_map, _, _ = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
+                                              args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine,
+                                              samp_func_fine=samp_func_fine)
             else:
                 rgb_map, t_map, _, _ = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
                                               args=args, device=device, sv_path=render_path)
@@ -180,7 +178,7 @@ def train(args):
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
         with torch.no_grad():
             if args.N_samples_fine > 0:
-                rgb_map, t_map, rgb_map_fine, t_map_fine = render_style(nerf_forward=nerf_forward, samp_func=samp_func, style_forward=style_forward, latents_model=latents_model,
+                rgb_map, t_map, _, _ = render_style(nerf_forward=nerf_forward, samp_func=samp_func, style_forward=style_forward, latents_model=latents_model,
                                                                         dataloader=valid_dataloader, args=args, device=device, sv_path=render_path,
                                                                         nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine, sigma_scale=args.sigma_scale)
             else:
@@ -232,13 +230,11 @@ def train(args):
 
                 # Calculate Loss
                 loss_rgb = img2mse(rgb_gt, rgb_exp)
-                # opt_t = time.time()
                 loss = loss_rgb
 
                 fine_t = time.time()
                 if args.N_samples_fine > 0:
                     pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
-                    # print(pts_fine)
                     pts_num = args.N_samples + args.N_samples_fine
                     rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
                     ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
@@ -257,11 +253,7 @@ def train(args):
                         tqdm.write(
                             f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss.data[0]} PSNR: {psnr.data[0]} PSNR Fine: {psnr_fine.data[0]} RGB Loss: {loss_rgb.data[0]} RGB Fine Loss: {loss_rgb_fine.data[0]}"
                             f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
-                        # tqdm.write(
-                        #     f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss_rgb.item()} PSNR: {psnr.item()} RGB Loss: {loss_rgb.item()}"
-                        #     f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
                     else:
-                        # tqdm.write(f"[ORIGIN TRAIN] Iter: {global_step}")
                         tqdm.write(
                             f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss_rgb.item()} PSNR: {psnr.item()} RGB Loss: {loss_rgb.item()}"
                             f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
@@ -347,36 +339,10 @@ def train(args):
 
         latents_model.set_optimizer()
 
-        patch_size = 512  # for 512 * 512 (or = 1024 for 1024 * 1024)
-        resample_layer = torch_nn.Upsample(size=(patch_size, patch_size), mode='bilinear', align_corners=True)
-
         loss_c, loss_s = torch.tensor(0.), torch.tensor(0.)
         while True:
             for _ in range(rounds_per_epoch):
                 batch_data = train_dataloader.get_batch()
-                # # Patch Sampling
-                # if global_step > args.decoder_step:
-                #     style_id, fid, hid, wid = np.random.randint(0, train_dataset.style_num), \
-                #                               np.random.randint(0, train_dataset.frame_num), \
-                #                               np.random.randint(0, train_dataset.h), \
-                #                               np.random.randint(0, train_dataset.w)
-                #     batch_data = train_dataset.get_patch_train_style(style_id=style_id, fid=fid, hid=hid, wid=wid, patch_size=patch_size)
-                #     content_images = torch.movedim(batch_data['rgb_origin'].to(device).float().reshape([1, patch_size, patch_size, 3]), -1, 1)
-                #     style_images = torch.movedim(batch_data['style_image'].to(device).float(), -1, 1)
-                #     loss_c, loss_s, stylized_content = style_net(content_images, style_images,
-                #                                                  return_stylized_content=True)
-                #     loss_c, loss_s = args.content_loss_lambda * loss_c, args.style_loss_lambda * loss_s
-                #     stylized_content = resample_layer(stylized_content)
-                #
-                #     samp_idx = np.random.choice(np.arange(patch_size ** 2), [args.batch_size_style], replace=False)
-                #     batch_data['rgb_gt'] = torch.clip(torch.movedim(stylized_content, 1, -1).reshape([-1, 3])[samp_idx].detach(), 0, 1)
-                #     rgb_2d = torch.clip(torch.movedim(stylized_content, 1, -1).reshape([-1, 3])[samp_idx], 0, 1)
-                #
-                #     samp_keys = ['rays_o', 'rays_d', 'frame_id', 'style_id', 'rgb_origin']
-                #     for key in samp_keys:
-                #         batch_data[key] = batch_data[key][samp_idx]
-
-                # To Device as Tensor
                 # To Device as Tensor
                 for key in batch_data:
                     batch_data[key] = torch.array(batch_data[key].numpy())
@@ -430,20 +396,8 @@ def train(args):
                 loss_mimic = loss_rgb
                 loss = loss_mimic + loss_logp
 
-                # # Loss for 2D stylization network
-                # if global_step > args.decoder_step:
-                #     loss_rgb_2d = args.rgb_loss_lambda_2d * img2mse(rgb_2d, rgb_exp_style.detach())
-                #     if args.N_samples_fine > 0:
-                #         loss_rgb_2d_fine = args.rgb_loss_lambda_2d * img2mse(rgb_2d, rgb_exp_style_fine.detach())
-                #         loss_rgb_2d += loss_rgb_2d
-                #     loss_mimic = loss_rgb_2d
-                #     loss_2d = loss_mimic + loss_c + loss_s
-
                 # Backward and Optimize
                 opt_t = time.time()
-                # if global_step > args.decoder_step:
-                #     loss_2d.backward()
-                #     decoder_optimizer.step()
                 style_optimizer.step(loss)
                 latents_model.optimize(loss)
 
@@ -488,12 +442,6 @@ def train(args):
                     if len(ckpts) > args.ckp_num:
                         os.remove(ckpts[0])
 
-                    # # Saving 2D stylization method
-                    # state_dict = style_net.decoder.state_dict()
-                    # for key in state_dict.keys():
-                    #     state_dict[key] = state_dict[key]
-                    # sv_dict = {'decoder': state_dict, 'step': global_step}
-                    # torch.save(sv_dict, ckpts_path + '/decoder.pth')
 
                 if global_step % args.i_print == 0:
                     tqdm.write(f"[STYLE TRAIN] Iter: {global_step} Loss: {loss.item()} Pixel RGB Loss: {loss_rgb.item()} -Log(p) Loss: {loss_logp.item()} Loss Content: {loss_c.item()} Loss Style: {loss_s.item()}"
@@ -510,15 +458,7 @@ def train(args):
         print('Origin Train')
         Origin_train(global_step)
     else:
-        sv_name = '/decoder.pth'
-        is_ndc = (args.dataset_type == 'llff' and not args.no_ndc)
-        if not os.path.exists(sv_path + sv_name):
-            train_temporal_invoke(save_dir=sv_path, sv_name=sv_name, log_dir=sv_path + '/style_decoder/', is_ndc=is_ndc,
-                                  nerf_content_dir=nerf_gen_data_path, style_dir=args.styledir, batch_size=4)
-
-        if not os.path.exists(nerf_gen_data_path):
-            Prepare_Style_data(nerf_gen_data_path=nerf_gen_data_path)
-
+        check_nst_preprocess(args)
         Style_train(global_step, train_dataset)
         exit(0)
     return
@@ -526,5 +466,6 @@ def train(args):
 
 if __name__ == '__main__':
     args = config_parser()
+    
     while True:
         train(args=args)

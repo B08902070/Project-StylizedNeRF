@@ -4,17 +4,13 @@ import glob
 import json
 import torch
 import pickle
-import imageio
-import plyfile
 import numpy as np
 import torch.nn as nn
 from tqdm import tqdm
 from PIL import Image
 # mpl.use('Agg')
 import matplotlib.pyplot as plt
-from plyfile import PlyElement, PlyData
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
 
 
 
@@ -61,23 +57,6 @@ def write_obj(v, path, f=None):
         meshfile.write(f'{"".join(str_v)}{"".join(str_f)}')
 
 
-def write_ply_rgb(points, RGB, filename):
-    """ Color (N,3) points with labels (N) within range 0 ~ num_classes-1 as PLY file """
-    N = points.shape[0]
-    vertex = []
-    for i in range(N):
-        vertex.append((points[i, 0], points[i, 1], points[i, 2], RGB[i][0], RGB[i][1], RGB[i][2]))
-    vertex = np.array(vertex,
-                      dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
-
-    el = PlyElement.describe(vertex, 'vertex', comments=['vertices'])
-    PlyData([el], text=True).write(filename)
-
-
-def read_ply(path):
-    data = PlyData.read(path)
-    coor = np.stack([data['vertex']['x'], data['vertex']['y'], data['vertex']['z']], axis=-1)
-    return coor
 
 
 def read_frame_pose(path):
@@ -169,47 +148,11 @@ def json_save_camera_parameters(path, cp, intr):
         json.dump(save_dict, file)
 
 
-def write_ply(v, path):
-    header = f"ply\nformat ascii 1.0\nelement vertex {len(v)}\nproperty double x\nproperty double y\nproperty double z\nend_header\n"
-    str_v = [f"{vv[0]} {vv[1]} {vv[2]}\n" for vv in v]
-
-    with open(path, 'w') as meshfile:
-        meshfile.write(f'{header}{"".join(str_v)}')
-
-
-def load_ply(path):
-    data = plyfile.PlyData.read(path)
-    pcls = np.array([data['vertex']['x'], data['vertex']['y'], data['vertex']['z']], np.float32).T
-    rgbs = np.array([data['vertex']['red'], data['vertex']['green'], data['vertex']['blue']], np.float32).T
-    return pcls, rgbs
-
 
 def save_makedir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-
-def view_synthesis(cps, factor=10):
-    frame_num = cps.shape[0]
-    cps = np.array(cps)
-    from scipy.spatial.transform import Slerp
-    from scipy.spatial.transform import Rotation as R
-    from scipy import interpolate as intp
-    rots = R.from_matrix(cps[:, :3, :3])
-    slerp = Slerp(np.arange(frame_num), rots)
-    tran = cps[:, :3, -1]
-    f_tran = intp.interp1d(np.arange(frame_num), tran.T)
-
-    new_num = int(frame_num * factor)
-
-    new_rots = slerp(np.linspace(0, frame_num - 1, new_num)).as_matrix()
-    new_trans = f_tran(np.linspace(0, frame_num - 1, new_num)).T
-
-    new_cps = np.zeros([new_num, 4, 4], np.float)
-    new_cps[:, :3, :3] = new_rots
-    new_cps[:, :3, -1] = new_trans
-    new_cps[:, 3, 3] = 1
-    return new_cps
 
 
 def normalize_cps(cps):
@@ -342,85 +285,6 @@ def pts2imgcoor(pts, intr):
     return imgcoor
 
 
-def alpha_composition(pts_rgb, pts_sigma, t_values, sigma_noise_std=0., white_bkgd=False):
-    """Transforms model's predictions to semantically meaningful values.
-    Args:
-        pts_rgb: [num_rays, num_samples along ray, 3]. Prediction from model.
-        pts_sigma: [num_rays, num_samples along ray]. Prediction from model.
-        t_values: [num_rays, num_samples along ray]. Integration time.
-    Returns:
-        rgb_exp: [num_rays, 3]. Estimated RGB color of a ray.
-        weights: [num_rays, num_samples]. Weights assigned to each sampled color.
-        t_exp: [num_rays]. Estimated distance to object.
-    """
-    # sigma2alpha = lambda sigma, dists: 1.-jt.exp(-sigma * dists)
-    sigma2alpha = lambda raw, dists, act_fn=nn.relu: 1. - torch.exp(-act_fn(raw) * dists)
-
-    delta = t_values[..., 1:] - t_values[..., :-1]
-    delta = torch.cat([delta, torch.array([1e10]).expand(delta[..., :1].shape)], -1)  # [N_rays, N_samples]
-
-    noise = 0.
-    if sigma_noise_std > 0:
-        # noise = jt.random(pts_sigma.shape) * sigma_noise_std
-        noise = nn.init.normal_(size = pts_sigma.shape, dtype = pts_sigma.dtype) * sigma_noise_std
-
-    alpha = sigma2alpha(F.relu(pts_sigma + noise), delta)  # [N_rays, N_samples]
-    weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]
-    rgb_exp = torch.sum(weights[..., None] * pts_rgb, -2)  # [N_rays, 3]
-
-    t_exp = torch.sum(weights * t_values, -1)
-    acc_map = torch.sum(weights, -1)
-    if white_bkgd:
-        rgb_exp = rgb_exp + (1. - acc_map[..., None])
-
-    return rgb_exp, t_exp, weights
-
-
-def alpha_composition_wild(pts_rgb, pts_sigma, t_values, pts_transient_rgb, pts_transient_sigma, pts_transient_beta, beta_min=0.03, sigma_noise_std=0., white_bkgd=False):
-    """Transforms model's predictions to semantically meaningful values.
-    Args:
-        pts_rgb: [num_rays, num_samples along ray, 3]. Prediction from model.
-        pts_sigma: [num_rays, num_samples along ray]. Prediction from model.
-        t_values: [num_rays, num_samples along ray]. Integration time.
-    Returns:
-        rgb_exp: [num_rays, 3]. Estimated RGB color of a ray.
-        weights: [num_rays, num_samples]. Weights assigned to each sampled color.
-        t_exp: [num_rays]. Estimated distance to object.
-    """
-    sigma2alpha = lambda sigma, dists: 1.-torch.exp(-sigma * dists)
-
-    delta = t_values[..., 1:] - t_values[..., :-1]
-    delta = torch.cat([delta, torch.Tensor([1e10]).expand(delta[..., :1].shape).to(pts_rgb.device)], -1)  # [N_rays, N_samples]
-
-    noise = 0.
-    if sigma_noise_std > 0:
-        noise = nn.init.normal_(pts_sigma.shape, device=pts_sigma.device) * sigma_noise_std
-
-    sigma_static = torch.relu(pts_sigma + noise)
-    alpha_static = sigma2alpha(sigma_static, delta)
-
-    sigma_transient = torch.relu(pts_transient_sigma)
-    alpha_transient = sigma2alpha(sigma_transient, delta)
-    T_transient = torch.cumprod(torch.cat([torch.ones((alpha_transient.shape[0], 1), device=alpha_transient.device), 1. - alpha_transient + 1e-10], -1), -1)[:, :-1]
-    beta_exp = torch.sum(T_transient[..., None] * alpha_transient[..., None] * torch.relu(pts_transient_beta), -2) + beta_min
-
-    sigma_both = sigma_static + sigma_transient
-    alpha_both = sigma2alpha(sigma_both, delta)  # [N_rays, N_samples]
-    T_both = torch.cumprod(torch.cat([torch.ones((alpha_both.shape[0], 1), device=alpha_both.device), 1.-alpha_both + 1e-10], -1), -1)[:, :-1]
-
-    rgb_exp = torch.sum(T_both[..., None] * alpha_static[..., None] * pts_rgb + T_both[..., None] * alpha_transient[..., None] * pts_transient_rgb, -2)  # [N_rays, 3]
-
-    weights = alpha_both * T_both
-    t_exp = torch.sum(weights * t_values, -1)
-    acc_map = torch.sum(weights, -1)
-    if white_bkgd:
-        rgb_exp = rgb_exp + (1.-acc_map[..., None])
-
-    return rgb_exp, t_exp, weights, beta_exp
-
-
-
-
 img2mse = lambda x, y: torch.mean((x - y) ** 2)
 img2l1 = lambda x, y: (x - y).abs().mean()
 mse2psnr = lambda x: -10. * torch.log(x) / torch.log(torch.array([10.]))
@@ -467,5 +331,3 @@ def empty_loss(ts, sigma, t_gt):
     sigma_sum = torch.sum(sigma * delta_ts * (ts[:, :-1] < (t_gt.unsqueeze(-1) * boarder_rate)).float(), dim=-1)
     loss_empty = torch.mean(sigma_sum)
     return loss_empty
-
-

@@ -17,7 +17,10 @@ from learnable_latents import VAE
 from style_function import cal_mean_std
 from style_module_helper import *
 from style_nerf import Style_NeRF
+from rendering import cal_geometry
+from dataset import StyleRaySampler
 from nerf_helper import batchify, sampling_pts_fine, sampling_pts_uniform
+
 
 
 def train_transform():
@@ -35,7 +38,6 @@ def train_transform2():
         transforms.ToTensor()
     ]
     return transforms.Compose(transform_list)
-
 
 
 def finetune_decoder(args):
@@ -170,6 +172,7 @@ def gen_nerf_content(args):
         nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
 
     """load checkpoint of nerf"""
+    use_viewdir_str = '_UseViewDir_' if args.use_viewdir else ''
     ckpts_path = os.path.join(args.basedir, args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
     ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' not in f]
     print('Found ckpts', ckpts, ' from ', ckpts_path)
@@ -193,7 +196,6 @@ def gen_nerf_content(args):
     print("Preparing nerf data for style training ...")
     cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
                  sv_path=args.nerf_content_dir, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
-
 
 
 def ndc2world(coor_ndc, h, w, focal):
@@ -406,4 +408,4 @@ if __name__ == '__main__':
         gen_nerf_content(args)
         train_decoder_with_nerf(args)
     else:
-        print('known task, only support tasks: [finetune_decoder, vae, decoder_with_nerf]')
+        print('Unknown task, only support tasks: [finetune_decoder, vae, decoder_with_nerf]')
