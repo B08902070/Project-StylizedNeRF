@@ -16,6 +16,8 @@ from camera import Camera
 from learnable_latents import VAE
 from style_function import cal_mean_std
 from style_module_helper import *
+from style_nerf import Style_NeRF
+from nerf_helper import batchify, sampling_pts_fine, sampling_pts_uniform
 
 
 def train_transform():
@@ -149,6 +151,37 @@ def train_vae(args):
 
 
 def gen_nerf_content(args):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    """set sampling functions"""
+    samp_func = sampling_pts_uniform
+    if args.N_samples_fine > 0:
+        samp_func_fine = sampling_pts_fine
+
+    """set nerf"""
+    nerf = Style_NeRF(args=args, mode='coarse')
+    nerf.eval()
+    nerf.to(device)
+    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
+    if args.N_samples_fine > 0:
+        nerf_fine = Style_NeRF(args=args, mode='fine')
+        nerf_fine.train()
+        grad_vars += list(nerf_fine.parameters())
+        nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
+
+    """load checkpoint of nerf"""
+    ckpts_path = os.path.join(args.basedir, args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
+    ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' not in f]
+    print('Found ckpts', ckpts, ' from ', ckpts_path)
+    if len(ckpts) > 0 and not args.no_reload:
+        ckpt_path = ckpts[-1]
+        print('Reloading Nerf Model from ', ckpt_path)
+        ckpt = torch.load(ckpt_path)
+        # Load nerf
+        nerf.load_state_dict(ckpt['nerf'])
+        if args.N_samples_fine > 0:
+            nerf_fine.load_state_dict((ckpt['nerf_fine']))
+
     """Dataset Creation"""
     tmp_dataset = StyleRaySampler(data_path=args.datadir, style_path=args.style_dir, factor=args.factor,
                                   mode='valid', valid_factor=args.gen_factor, dataset_type=args.dataset_type,
@@ -159,9 +192,7 @@ def gen_nerf_content(args):
                                 pin_memory=(args.num_workers > 0))
     print("Preparing nerf data for style training ...")
     cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
-                 device=device,
-                 sv_path=nerf_gen_data_path, nerf_forward_fine=nerf_forward_fine,
-                 samp_func_fine=samp_func_fine)
+                 sv_path=args.nerf_content_dir, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
 
 
 
@@ -360,6 +391,10 @@ if __name__ == '__main__':
                         help='Pixel Alignment with half a pixel.')
     parser.add_argument("--spherify", action='store_true', help='Spherify camera poses or not')
     parser.add_argument("--num_workers", type=int, default=0, help='Number of workers for torch dataloader.')
+    parser.add_argument("--N_samples", type=int, default=64,
+                        help='The number of sampling points per ray')
+    parser.add_argument("--N_samples_fine", type=int, default=64,
+                        help='The number of sampling points per ray for fine network')
 
     args = parser.parse_args()
 

@@ -1,6 +1,6 @@
 from utils import *
 
-def cal_geometry(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
+def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     """Render Scene into Images"""
     save_makedir(sv_path)
     dataset = dataloader.dataset
