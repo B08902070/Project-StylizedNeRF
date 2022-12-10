@@ -1,16 +1,12 @@
 import os
 import cv2
-import glob
 import json
 import torch
 import pickle
 import numpy as np
-import torch.nn as nn
-from tqdm import tqdm
 from PIL import Image
 # mpl.use('Agg')
 import matplotlib.pyplot as plt
-import torch.nn.functional as F
 
 
 
@@ -227,28 +223,6 @@ class plot_chart:
         save_obj(self.path + '/chart_obj', self)
 
 
-def get_rays_ios_np(H, W, focal, c2w, cx=None, cy=None):
-    if cx is None or cy is None:
-        cx, cy = W * .5, H * .5
-    # else:
-    #     print("Cx from %.03f to %.03f, Cy from %.03f to %.03f" % (H/2, cx, W/2, cy))
-    i, j = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32), indexing='xy')
-    dirs = np.stack([(i-cx)/focal, -(j-cy)/focal, -np.ones_like(i)], -1)
-    # Rotate ray directions from camera frame to the world frame
-    rays_d = np.sum(dirs[..., np.newaxis, :] * c2w[:3, :3], -1)  # dot product, equals to: [c2w.dot(dir) for dir in dirs]
-    rays_d = rays_d / np.linalg.norm(rays_d, axis=-1, keepdims=True)
-    # Translate camera frame's origin to the world frame. It is the origin of all rays.
-    rays_o = np.broadcast_to(c2w[:3, -1], np.shape(rays_d))
-    return rays_o, rays_d
-
-
-def get_rays_from_id(hid, wid, focal, c2w, cx, cy):
-    dir = np.stack([(wid - cx) / focal, - (hid - cy) / focal, -np.ones_like(wid)], axis=-1)
-    ray_d = np.einsum('wc,c->w', c2w[:3, :3], dir)
-    ray_d = ray_d / np.linalg.norm(ray_d)
-    ray_o = c2w[:3, -1]
-    ray_o, ray_d = np.array(ray_o, dtype=np.float32), np.array(ray_d, dtype=np.float32)
-    return ray_o, ray_d
 
 
 def dep2pcl(depth, intr, cp, pixel_alignment=True):
@@ -289,33 +263,6 @@ img2mse = lambda x, y: torch.mean((x - y) ** 2)
 img2l1 = lambda x, y: (x - y).abs().mean()
 mse2psnr = lambda x: -10. * torch.log(x) / torch.log(torch.array([10.]))
 to8b = lambda x: np.array(x, dtype=np.uint8)
-
-
-def get_rays(H, W, focal, cps, cx=None, cy=None, chunk=256):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    H, W = int(H), int(W)
-    if cx is None or cy is None:
-        cx, cy = W * .5, H * .5
-    j, i = torch.meshgrid(torch.arange(H, dtype=torch.float32), torch.arange(W, dtype=torch.float32))
-    dirs = torch.stack([(i-cx)/focal, -(j-cy)/focal, -torch.ones_like(i)], -1).to(device)
-    cps_tensor = torch.from_numpy(cps).float().to(device)
-    start = 0
-    rays_o_total, rays_d_total = np.zeros([cps.shape[0], H, W, 3], np.float32), np.zeros([cps.shape[0], H, W, 3], np.float32)
-    while start < cps.shape[0]:
-        print('\rProcess: %.3f%%' % (start / cps.shape[0] * 100), end='')
-        end = min(start + chunk, cps.shape[0])
-
-        rays_d = torch.einsum('hwc,nbc->nhwb', dirs, cps_tensor[start: end, :3, :3])
-        rays_d = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
-        rays_d = rays_d.cpu().numpy()
-        rays_o = np.broadcast_to(cps[start: end, :3, -1][:, np.newaxis, np.newaxis], np.shape(rays_d))
-
-        rays_o_total[start: end] = rays_o
-        rays_d_total[start: end] = rays_d
-        start = end
-    print('\rProcess: 100.000%%')
-
-    return rays_o_total, rays_d_total
 
 
 def empty_loss(ts, sigma, t_gt):

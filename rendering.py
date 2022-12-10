@@ -1,4 +1,14 @@
-from utils import *
+import os
+import tqdm
+import torch
+import numpy as np
+import imageio
+from torch.utils.data import DataLoader
+
+
+from nerf_helper import alpha_composition
+from utils import save_makedir, to8b
+
 
 def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     """Render Scene into Images"""
@@ -75,11 +85,11 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
 
 
 
-def render(nerf_forward, samp_func, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
+def render(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     """Render Scene into Images"""
     save_makedir(sv_path)
     dataset = dataloader.dataset
-    frame_num, h, w = dataset.frame_num, dataset.h, dataset.w
+    h, w = dataset.h, dataset.w
     resolution = h * w
     img_id = 0
     rgb_map, t_map = None, None
