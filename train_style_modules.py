@@ -13,6 +13,7 @@ from torchvision import transforms
 from tensorboardX import SummaryWriter
 
 from camera import Camera
+from utils import save_makedir
 from learnable_latents import VAE
 from style_function import cal_mean_std
 from style_module_helper import *
@@ -42,7 +43,7 @@ def train_transform2():
 
 def pretrain_decoder(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    save_dir = Path(args.save_dir)
+    save_dir = Path(args.save_dir) / 'decoder/'
     save_dir.mkdir(exist_ok=True, parents=True)
     log_dir = Path(args.log_dir)
     log_dir.mkdir(exist_ok=True, parents=True)
@@ -50,7 +51,19 @@ def pretrain_decoder(args):
 
     
     network = NST_Net(encoder_pretrained_path= args.vgg_pretrained_path)
-    network.load_decoder_state_dict(torch.load('./pretrained/decoder.pth'))
+    ckpts_dir = save_dir
+    ckpts = [os.path.join(ckpts_dir, f) for f in sorted(os.listdir(ckpts_dir))]   
+    if len(ckpts) > 0 and not args.no_reload:
+        print('Found ckpts {} from {}'.format(ckpts[-1], ckpts_dir))
+        ckpt_path = ckpts[-1]
+        print('Reloading Nerf Model from ', ckpt_path)
+        ckpt = torch.load(ckpt_path)
+        step = ckpt['step']
+        # Load nerf
+        network.load_decoder_state_dict(torch.load(ckpt['decoder']))
+    # no checkpoints
+    else:
+        network.load_decoder_state_dict(torch.load('./pretrained/decoder.pth'))
     network.train()
     network.to(device)
 
@@ -71,7 +84,7 @@ def pretrain_decoder(args):
 
     optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)
 
-    for i in tqdm(range(args.max_iter)):
+    for i in tqdm(range(step, args.max_iter)):
         adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)
         content_images = next(content_iter).to(device)
         style_images = next(style_iter).to(device)
@@ -91,8 +104,13 @@ def pretrain_decoder(args):
             state_dict = network.decoder.state_dict()
             for key in state_dict.keys():
                 state_dict[key] = state_dict[key].to(torch.device('cpu'))
-            torch.save(state_dict, save_dir /
-                       'decoder_iter_{:d}.pth.tar'.format(i + 1))
+            save_path = save_dir /'decoder_iter_{:d}.pth.tar'.format(i + 1)
+            torch.save({'decoder':state_dict,
+                        'step': i+1}, save_path)
+            # Delete ckpts
+            ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
+            if len(ckpts) > args.ckp_num:
+                os.remove(ckpts[0])
     writer.close()
 
 
@@ -124,7 +142,7 @@ def train_vae(args):
     if os.path.exists(vae_ckpt):
         vae.load_state_dict(torch.load(vae_ckpt))
     optimizer = torch.optim.Adam(vae.parameters(), lr=args.lr)
-
+    start_i = 
     for i in tqdm(range(args.max_iter)):
         adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)
         style_images = next(style_iter).to(device)
