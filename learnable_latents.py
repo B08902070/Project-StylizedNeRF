@@ -56,7 +56,7 @@ def reparameterize(mu, sigma):
     return e * torch.exp(0.5*sigma) + mu
 
 class VAE(nn.Module):
-    def __init__(self, data_dim, latent_dim, W=512, D=4, kl_lamda =0.1):
+    def __init__(self, data_dim, latent_dim, W=512, D=4, kl_lambda =0.1):
         super().__init__()
         self.encoder = VAE_encoder(data_dim, latent_dim, W, D)
         self.decoder = VAE_decoder(data_dim, latent_dim, W, D)
@@ -64,7 +64,7 @@ class VAE(nn.Module):
         self.latent_dim = latent_dim
         self.W = W
         self.D = D
-        self.kl_lamda = kl_lamda
+        self.kl_lambda = kl_lambda
         self.mse_loss = nn.MSELoss()
 
         # set fully connected layers
@@ -93,7 +93,7 @@ class VAE(nn.Module):
     def loss(self, x, decoded_x, mu, sigma):
         kl_loss = torch.mean(-0.5 * torch.sum(1 + sigma - mu ** 2 - sigma.exp(), dim=1), dim=0)
         recon_loss = self.mse_loss(x, decoded_x)
-        return kl_loss*self.kl_lamda + recon_loss
+        return kl_loss*self.kl_lambda + recon_loss
 
 
 class Learnable_Latents(nn.Module):
