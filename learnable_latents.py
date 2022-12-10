@@ -93,7 +93,8 @@ class VAE(nn.Module):
     def loss(self, x, decoded_x, mu, sigma):
         kl_loss = torch.mean(-0.5 * torch.sum(1 + sigma - mu ** 2 - sigma.exp(), dim=1), dim=0)
         recon_loss = self.mse_loss(x, decoded_x)
-        return kl_loss*self.kl_lambda + recon_loss
+        loss = kl_loss*self.kl_lambda + recon_loss
+        return loss, recon_loss, kl_loss
 
 
 class Learnable_Latents(nn.Module):

@@ -132,7 +132,7 @@ def train_vae(args):
         style_mean, style_std = cal_mean_std(style_features)
         style_features = torch.cat([style_mean.squeeze(), style_std.squeeze()], dim=-1)
         recon, mu, logvar = vae(style_features)
-        loss, recon_loss, kl_loss = vae.loss(style_features, recon, mu, logvar, return_losses=True)
+        loss, recon_loss, kl_loss = vae.loss(style_features, recon, mu, logvar)
 
         optimizer.zero_grad()
         loss.backward()
