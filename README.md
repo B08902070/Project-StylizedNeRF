@@ -1,7 +1,7 @@
-# StylizedNeRF (Jittor): Consistent 3D Scene Stylization as Stylized NeRF via 2D-3D mutual learning
+# StylizedNeR Pytorch Implementation
 
 ## Introduction
-This repository is code release for StylizedNeRF: Consistent 3D Scene Stylization as Stylized NeRF via 2D-3D mutual learning.
+The original paper is StylizedNeRF: Consistent 3D Scene Stylization as Stylized NeRF via 2D-3D mutual learning.
 
 <img src='teaser.png' width='800'>
 
@@ -9,14 +9,11 @@ This repository is code release for StylizedNeRF: Consistent 3D Scene Stylizatio
 
 ## Installation
 
-The code is tested with Ubuntu 18.04, Python 3.8, Jittor 1.2.2.58, CUDA 10.0 and cuDNN v7.5.
+The code is tested with Google Colab, Python 3.7
 
 Set Up Environment
 
-    [1] Run 'virtualenv stylenerf -p python3.7' to build a environment and 'source ./stylenerf/bin/activate' to activate it
-    [2] Run 'pip install -r requirements.txt' to install libraries (Notice that pytorch3d should be of version 0.4.0 !!!)
-    
-For the jittor installation, please refer to [this link](https://cg.cs.tsinghua.edu.cn/jittor/download).
+    Run 'pip install -r requirements.txt' to install libraries
 
 
 ## Data preprocessing
