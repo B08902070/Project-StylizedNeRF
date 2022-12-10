@@ -441,13 +441,13 @@ def train(args):
             nerf_fine.load_state_dict((ckpt['nerf_fine']))
 
     """For pretrain nerf"""
-    if args.pretrain_nerf:
+    if args.pretrain_nerf or args.render_train or args.render_valid:
         global_step = pretrain_nerf(args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine, 
                       nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpts_path=ckpt_path)
 
 
-    """For train stylenerf:  """
-    if args.train_style_nerf:
+    """For train stylenerf"""
+    if args.train_style_nerf or args.render_train_style or args.render_valid_style:
         nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
         check_nst_preprocess(nerf_gen_data_path, sv_path)
         global_step = train_style_nerf(args=args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine,
