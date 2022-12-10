@@ -42,6 +42,7 @@ class Style_NeRF(nn.Module):
 
         out = self.net(emb_pts, emb_dirs)
         out['dirs'] = dirs
+        out['pts'] = emb_pts
         return out
 
 class Style_Module(nn.Module):

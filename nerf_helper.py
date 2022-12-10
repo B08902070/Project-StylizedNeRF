@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import OrderedDict
 
 # positional Encoding
 class Embedder:
@@ -46,14 +45,13 @@ class Embedder:
 
 class Style_NeRF_MLP(nn.Module):
     def __init__(self, W=256, D=8, input_ch_pts=3, input_ch_viewdir=3, skips=[4],
-                     act_fn=nn.ReLU, use_viewdir=True, sigma_mul=0, enable_style=False):
+                     act_fn=nn.ReLU, use_viewdir=True, sigma_mul=0):
         super().__init__()
         self.input_ch_pts = input_ch_pts
         self.input_ch_viewdir = input_ch_viewdir
         self.skips = skips
         self.act_fn = act_fn()
         self.use_viewdir = use_viewdir
-        self.enable_style = enable_style
 
         # base layer: for density generation
         self.base_layers = nn.ModuleList()
@@ -99,11 +97,7 @@ class Style_NeRF_MLP(nn.Module):
             rgb = self.act_fn(self.rgb_layers[0](remap))
         rgb = F.sigmoid(self.remap_layer[1](rgb))
 
-        if self.enable_style:
-            out= OrderedDict([( 'rgb', rgb),  ('pts', pts), ('sigma', sigma.squeeze(-1))])
-        else:
-            out= OrderedDict([( 'rgb', rgb),  ('sigma', sigma.squeeze(-1))])
-        return out
+        return { 'rgb', rgb,  'sigma', sigma.squeeze(-1)}
 
 
 def sampling_pts_uniform(rays_o, rays_d, N_samples=64, near=0., far=1.05, harmony=False, perturb=False):
