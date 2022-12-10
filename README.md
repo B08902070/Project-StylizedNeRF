@@ -31,7 +31,7 @@ Set Up Environment
 
 ## Citation
 
-If you find our work useful in your research, please consider citing:
+Citation of the original code
 
     @inproceedings{Huang22StylizedNeRF,
         author = {Huang, Yi-Hua and He, Yue and Yuan, Yu-Jie and Lai, Yu-Kun and Gao, Lin},
