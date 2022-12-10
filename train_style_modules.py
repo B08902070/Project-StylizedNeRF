@@ -40,7 +40,7 @@ def train_transform2():
     return transforms.Compose(transform_list)
 
 
-def finetune_decoder(args):
+def pretrain_decoder(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_dir = Path(args.save_dir)
     save_dir.mkdir(exist_ok=True, parents=True)
@@ -168,7 +168,6 @@ def gen_nerf_content(args):
     if args.N_samples_fine > 0:
         nerf_fine = Style_NeRF(args=args, mode='fine')
         nerf_fine.train()
-        grad_vars += list(nerf_fine.parameters())
         nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
 
     """load checkpoint of nerf"""
@@ -346,7 +345,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', type=str, default='vae',
-                        help='vae or finetune_decoder or decoder_with_nerf')
+                        help='vae or pretrain_decoder or decoder_with_nerf')
     # Basic options
     parser.add_argument("--datadir", type=str, help='input data directory')
     parser.add_argument('--content_dir', type=str, default='./all_contents/',
@@ -400,8 +399,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.task == 'finetune_decoder':
-        finetune_decoder(args)
+    if args.task == 'pretrain_decoder':
+        pretrain_decoder(args)
     elif args.task == 'vae':
         train_vae(args)
     elif args.task == 'decoder_with_nerf':
