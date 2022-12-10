@@ -337,6 +337,7 @@ def train_decoder_with_nerf(args):
                 Image.fromarray(np.uint8(255 * warped_msks[i])).save(args.log_dir + '/warped_mask_%03d.png' % i)
             Image.fromarray(np.uint8(255*torch.movedim(style_images[0], 0, -1).detach().cpu().numpy())).save(args.log_dir + '/style_image.png')
 
+
     writer.close()
 
 
