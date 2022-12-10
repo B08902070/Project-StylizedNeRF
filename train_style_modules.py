@@ -348,7 +348,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='vae',
                         help='vae or pretrain_decoder or decoder_with_nerf')
     # Basic options
-    parser.add_argument("--datadir", type=str, help='input data directory')
+    parser.add_argument("--datadir", type=str, default='./data', help='input data directory')
     parser.add_argument('--content_dir', type=str, default='./all_contents/',
                         help='Directory path to a batch of content images')
     parser.add_argument('--nerf_content_dir', type=str, default='./nerf_gen_data2/',
@@ -368,14 +368,14 @@ if __name__ == '__main__':
                         help='Directory to save the log')
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--lr_decay', type=float, default=5e-5)
-    parser.add_argument('--max_iter', type=int, default=10000) # origin 160000
+    parser.add_argument('--max_iter', type=int, default=50000) # origin 160000
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--style_weight', type=float, default=2.)
     parser.add_argument('--content_weight', type=float, default=1.0)
     parser.add_argument('--temporal_weight', type=float, default=50.)
     parser.add_argument('--n_threads', type=int, default=16)
-    parser.add_argument('--save_model_interval', type=int, default=200)
-    parser.add_argument('--print_interval', type=int, default=20)
+    parser.add_argument('--save_model_interval', type=int, default=500)
+    parser.add_argument('--print_interval', type=int, default=50)
 
     # train vae options
     parser.add_argument('--vae_d', type=int, default=4)
