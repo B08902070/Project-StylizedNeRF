@@ -408,4 +408,4 @@ if __name__ == '__main__':
         gen_nerf_content(args)
         train_decoder_with_nerf(args)
     else:
-        print('Unknown task, only support tasks: [finetune_decoder, vae, decoder_with_nerf]')
+        print('Unknown task, only support tasks: [pretrain_decoder, vae, decoder_with_nerf]')
