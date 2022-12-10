@@ -5,6 +5,7 @@ from rendering import *
 
 import torch
 from torch import nn
+from torch.utils.data import DataLoader
 
 from torch.autograd import Variable 
 from dataset import RaySampler, StyleRaySampler_gen, LightDataLoader
@@ -32,7 +33,6 @@ def check_nst_preprocess(args, nerf_gen_data_path, sv_path):
 
 
 def train(args):
-
     """set sampling functions"""
     samp_func = sampling_pts_uniform
     if args.N_samples_fine > 0:
@@ -45,7 +45,7 @@ def train(args):
     shutil.copy(args.config, sv_path)
     nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
 
-    """Create Nerfs"""
+    """Create Nerf"""
     nerf = Style_NeRF(args=args, mode='coarse')
     nerf.train()
     grad_vars = list(nerf.parameters())
@@ -96,13 +96,13 @@ def train(args):
     if global_step + 1 < args.origin_step and not os.path.exists(nerf_gen_data_path):
         train_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
                                    mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
-                                   white_bkgd=args.white_bkgd, half_res=args.half_res, no_ndc=args.no_ndc,
+                                   no_ndc=args.no_ndc,
                                    pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
     else:
         train_dataset = StyleRaySampler_gen(data_path=args.datadir, gen_path=nerf_gen_data_path, style_path=args.styledir,
                                             factor=args.factor,
                                             mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
-                                            white_bkgd=args.white_bkgd, half_res=args.half_res, no_ndc=args.no_ndc,
+                                            no_ndc=args.no_ndc,
                                             pixel_alignment=args.pixel_alignment, spherify=args.spherify,
                                             decode_path=sv_path+'/decoder.pth',
                                             store_rays=args.store_rays, TT_far=args.TT_far)

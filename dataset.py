@@ -187,7 +187,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
 
 
 class RaySampler(Dataset):
-    def __init__(self, data_path, factor=2., mode='train', valid_factor=3, dataset_type='llff', white_bkgd=False, half_res=True, no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
+    def __init__(self, data_path, factor=2., mode='train', valid_factor=3, dataset_type='llff', half_res=True, no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
         super().__init__()
 
         if dataset_type == 'llff':
@@ -252,37 +252,31 @@ class RaySampler(Dataset):
         self.cps_valid = cps_valid
         self.rays_num = self.frame_num * self.h * self.w
         self.near, self.far = near, far
-        self.rays_o, self.rays_d = rays_o, rays_d
-        self.rays_o_valid, self.rays_d_valid = rays_o_valid, rays_d_valid
+        self.rays_o_dict = {'train': rays_o, 'valid':rays_o_valid}
+        self.rays_d_dict = {'train': rays_d, 'valid':rays_d_valid}
 
-    def get_item_train(self, idx):
+    def _my_get_item(self, idx, mode):
         frame_id = idx // (self.h * self.w)
         pixel_id = idx % (self.h * self.w)
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
-        ray_o = self.rays_o[frame_id, hid, wid]
-        ray_d = self.rays_d[frame_id, hid, wid]
-        return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
-
-    def get_item_valid(self, idx):
-        frame_id = idx // (self.h * self.w)
-        pixel_id = idx % (self.h * self.w)
-        hid, wid = pixel_id // self.w, pixel_id % self.w
-        ray_o = self.rays_o[frame_id, hid, wid]
-        ray_d = self.rays_d[frame_id, hid, wid]
-        return {'rays_o': ray_o, 'rays_d': ray_d}
+        ray_o = self.rays_o_dict[self.mode][frame_id, hid, wid]
+        ray_d = self.rays_d_dict[self.mode][frame_id, hid, wid]
+        if mode == 'train':
+            return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
+        else:
+            return {'rays_o': ray_o, 'rays_d': ray_d}
 
 
     def set_mode(self, mode='train'):
-        modes = ['train', 'valid', 'train_style', 'valid_style']
+        modes = ['train', 'valid']
         if mode not in modes:
             print('Unknown mode: ', mode, ' Only supports: ', modes)
             exit(-1)
         self.mode = mode
 
     def __getitem__(self, item):
-        func_dict = {'train': self.get_item_train, 'valid': self.get_item_valid}
-        return func_dict[self.mode](item)
+        return self._my_get_item(item, self.mode)
 
     def __len__(self):
         if self.mode == 'train':
@@ -372,19 +366,22 @@ class StyleRaySampler(Dataset):
         self.style_paths = style_paths
 
         self.style_num = self.style_images.shape[0]
-        self.rays_o, self.rays_d = rays_o, rays_d
-        self.rays_o_valid, self.rays_d_valid = rays_o_valid, rays_d_valid
+        self.rays_o_dict = {'train': rays_o, 'valid':rays_o_valid, 'train_style':rays_o, 'valid_style':rays_o_valid}
+        self.rays_d_dict = {'train': rays_d, 'valid':rays_d_valid, 'train_style':rays_d, 'valid_style':rays_d_valid}
 
-    def get_item_train(self, idx):
+    def _my_get_item(self, idx):
         frame_id = idx // (self.h * self.w)
         pixel_id = idx % (self.h * self.w)
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
-        ray_o = self.rays_o[frame_id, hid, wid]
-        ray_d = self.rays_d[frame_id, hid, wid]
-        return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
+        ray_o = self.rays_o_dict[self.mode][frame_id, hid, wid]
+        ray_d = self.rays_d_dict[self.mode][frame_id, hid, wid]
+        if self.mode == 'train':
+            return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
+        else:
+            return {'rays_o': ray_o, 'rays_d': ray_d}
 
-    def get_item_train_style(self, idx):
+    def _my_get_item_style(self, idx):
         style_id = idx // (self.frame_num * self.h * self.w)
         frame_id = (idx % (self.frame_num * self.h * self.w)) // (self.h * self.w)
         hid = (idx % (self.h * self.w)) // self.w
@@ -393,27 +390,13 @@ class StyleRaySampler(Dataset):
         rgb = stylized_contents[hid, wid]
         rgb_origin = self.images[frame_id, hid, wid]
         style_feature = self.style_features[style_id]
-        ray_o = self.rays_o[frame_id, hid, wid]
-        ray_d = self.rays_d[frame_id, hid, wid]
-        return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'rgb_origin': rgb_origin, 'style_id': style_id, 'frame_id': frame_id}
-
-    def get_item_valid(self, idx):
-        frame_id = idx // (self.h * self.w)
-        pixel_id = idx % (self.h * self.w)
-        hid, wid = pixel_id // self.w, pixel_id % self.w
-        ray_o = self.rays_o_valid[frame_id, hid, wid]
-        ray_d = self.rays_d_valid[frame_id, hid, wid]
-        return {'rays_o': ray_o, 'rays_d': ray_d}
-
-    def get_item_valid_style(self, idx):
-        style_id = idx // (self.cps_valid.shape[0] * self.h * self.w)
-        frame_id = (idx % (self.cps_valid.shape[0] * self.h * self.w)) // (self.h * self.w)
-        hid = (idx % (self.h * self.w)) // self.w
-        wid = idx % self.w
-        ray_o = self.rays_o_valid[frame_id, hid, wid]
-        ray_d = self.rays_d_valid[frame_id, hid, wid]
+        ray_o = self.rays_o_dict[self.mode][frame_id, hid, wid]
+        ray_d = self.rays_d_dict[self.mode][frame_id, hid, wid]
         style_image = torch.from_numpy(self.style_images[style_id]).float()
-        return {'rays_o': ray_o, 'rays_d': ray_d, 'style_image': style_image, 'style_id': style_id, 'frame_id': frame_id}
+        if self.mode == 'train_style':
+            return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'rgb_origin': rgb_origin, 'style_id': style_id, 'frame_id': frame_id}
+        else:
+            return {'rays_o': ray_o, 'rays_d': ray_d, 'style_image': style_image, 'style_id': style_id, 'frame_id': frame_id}
 
 
     def set_mode(self, mode='train'):
@@ -424,8 +407,10 @@ class StyleRaySampler(Dataset):
         self.mode = mode
 
     def __getitem__(self, item):
-        func_dict = {'train': self.get_item_train, 'valid': self.get_item_valid, 'train_style': self.get_item_train_style, 'valid_style': self.get_item_valid_style}
-        return func_dict[self.mode](item)
+        if self.mode in ['train', 'valid']:
+            return self._my_get_item(item)
+        else:
+            return self._my_get_item_style(item)
 
     def __len__(self):
         if self.mode == 'train':
@@ -438,17 +423,9 @@ class StyleRaySampler(Dataset):
             return self.style_num * self.cps_valid.shape[0] * self.w * self.h
 
 
-def get_rays_from_id(hid, wid, focal, c2w, cx=None, cy=None):
-    dir = np.stack([(wid - cx) / focal, - (hid - cy) / focal, -np.ones_like(wid)], axis=-1)
-    ray_d = np.einsum('wc,c->w', c2w[:3, :3], dir)
-    ray_d = ray_d / np.linalg.norm(ray_d)
-    ray_o = c2w[:3, -1]
-    ray_o, ray_d = np.array(ray_o, dtype=np.float32), np.array(ray_d, dtype=np.float32)
-    return ray_o, ray_d
-
 
 class StyleRaySampler_gen(Dataset):
-    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, decode_path='./pretrained/decoder.pth', store_rays=True, TT_far=4., collect_stylized_images=True):
+    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, decode_path='./pretrained/decoder.pth', TT_far=4., collect_stylized_images=True):
         super().__init__()
 
         K = None
@@ -495,24 +472,21 @@ class StyleRaySampler_gen(Dataset):
 
         """Validation Rays"""
         cps_valid = view_synthesis(cps, valid_factor)
-        if store_rays:
-            print('get rays of training and validation')
-            rays_o, rays_d = np.zeros([cps.shape[0], H, W, 3]), np.zeros([cps.shape[0], H, W, 3])
-            for i in tqdm(range(cps.shape[0])):
-                tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps[i, :3, :4], pixel_alignment)
-                rays_o[i] = tmp_rays_o
-                rays_d[i] = tmp_rays_d
-            rays_o_valid, rays_d_valid = np.zeros([cps_valid.shape[0], H, W, 3]), np.zeros([cps_valid.shape[0], H, W, 3])
-            for i in tqdm(range(cps_valid.shape[0])):
-                tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps_valid[i, :3, :4], pixel_alignment)
-                rays_o_valid[i] = tmp_rays_o
-                rays_d_valid[i] = tmp_rays_d
 
-            if dataset_type == 'llff' and not no_ndc:
-                rays_o, rays_d = ndc_rays_np(H, W, K[0][0], 1., rays_o, rays_d)
-                rays_o_valid, rays_d_valid = ndc_rays_np(H, W, K[0][0], 1., rays_o_valid, rays_d_valid)
-        else:
-            rays_o, rays_d, rays_o_valid, rays_d_valid = None, None, None, None
+        rays_o, rays_d = np.zeros([cps.shape[0], H, W, 3]), np.zeros([cps.shape[0], H, W, 3])
+        for i in tqdm(range(cps.shape[0])):
+            tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps[i, :3, :4], pixel_alignment)
+            rays_o[i] = tmp_rays_o
+            rays_d[i] = tmp_rays_d
+        rays_o_valid, rays_d_valid = np.zeros([cps_valid.shape[0], H, W, 3]), np.zeros([cps_valid.shape[0], H, W, 3])
+        for i in tqdm(range(cps_valid.shape[0])):
+            tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps_valid[i, :3, :4], pixel_alignment)
+            rays_o_valid[i] = tmp_rays_o
+            rays_d_valid[i] = tmp_rays_d
+
+        if dataset_type == 'llff' and not no_ndc:
+            rays_o, rays_d = ndc_rays_np(H, W, K[0][0], 1., rays_o, rays_d)
+            rays_o_valid, rays_d_valid = ndc_rays_np(H, W, K[0][0], 1., rays_o_valid, rays_d_valid)
 
         """Style Data"""
         if not os.path.exists(data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data.npz'):
@@ -543,10 +517,9 @@ class StyleRaySampler_gen(Dataset):
         self.style_features = style_features
         self.style_num = self.style_images.shape[0]
 
-        self.store_rays = store_rays
         self.is_ndc = (dataset_type == 'llff' and not no_ndc)
-        self.rays_o, self.rays_d = rays_o, rays_d
-        self.rays_o_valid, self.rays_d_valid = rays_o_valid, rays_d_valid
+        self.rays_o_dict = {'train': rays_o, 'valid':rays_o_valid, 'train_style':rays_o, 'valid_style':rays_o_valid}
+        self.rays_d_dict = {'train': rays_d, 'valid':rays_d_valid, 'train_style':rays_d, 'valid_style':rays_d_valid}
         self.stylized_images_uint8 = None
         if collect_stylized_images:
             self.collect_all_stylized_images()
@@ -563,22 +536,20 @@ class StyleRaySampler_gen(Dataset):
                 img = np.array(Image.open(self.style_paths[i] + '/%03d.png' % j).convert('RGB'), np.uint8)
                 self.stylized_images_uint8[i, j] = img
 
-    def get_item_train(self, idx):
+    def _my_get_item(self, idx):
         frame_id = idx // (self.h * self.w)
         pixel_id = idx % (self.h * self.w)
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
-        if self.store_rays:
-            ray_o = self.rays_o[frame_id, hid, wid]
-            ray_d = self.rays_d[frame_id, hid, wid]
-        else:
-            ray_o, ray_d = get_rays_from_id(hid, wid, self.f, self.cps[frame_id], self.cx, self.cy)
-            if self.is_ndc:
-                ray_o, ray_d = ndc_rays_np(self.h, self.w, self.f, 1., ray_o[np.newaxis], ray_d[np.newaxis])
-                ray_o, ray_d = ray_o[0], ray_d[0]
-        return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
+        ray_o = self.rays_o_dict[self.mode][frame_id, hid, wid]
+        ray_d = self.rays_d_dict[self.mode][frame_id, hid, wid]
 
-    def get_item_train_style(self, idx):
+        if self.mode == 'train':
+            return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
+        else:
+            return {'rays_o': ray_o, 'rays_d': ray_d}
+
+    def _my_get_item_style(self, idx):
         style_id = idx // (self.frame_num * self.h * self.w)
         frame_id = (idx % (self.frame_num * self.h * self.w)) // (self.h * self.w)
         hid = (idx % (self.h * self.w)) // self.w
@@ -590,45 +561,14 @@ class StyleRaySampler_gen(Dataset):
             rgb = np.float32(self.stylized_images_uint8[style_id, frame_id, hid, wid]) / 255
         rgb_origin = self.images[frame_id, hid, wid]
         style_feature = self.style_features[style_id]
-        if self.store_rays:
-            ray_o = self.rays_o[frame_id, hid, wid]
-            ray_d = self.rays_d[frame_id, hid, wid]
-        else:
-            ray_o, ray_d = get_rays_from_id(hid, wid, self.f, self.cps[frame_id], self.cx, self.cy)
-            if self.is_ndc:
-                ray_o, ray_d = ndc_rays_np(self.h, self.w, self.f, 1., ray_o[np.newaxis], ray_d[np.newaxis])
-                ray_o, ray_d = ray_o[0], ray_d[0]
-        return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'rgb_origin': rgb_origin, 'style_id': style_id, 'frame_id': frame_id}
 
-    def get_item_valid(self, idx):
-        frame_id = idx // (self.h * self.w)
-        pixel_id = idx % (self.h * self.w)
-        hid, wid = pixel_id // self.w, pixel_id % self.w
-        if self.store_rays:
-            ray_o = self.rays_o_valid[frame_id, hid, wid]
-            ray_d = self.rays_d_valid[frame_id, hid, wid]
-        else:
-            ray_o, ray_d = get_rays_from_id(hid, wid, self.f, self.cps_valid[frame_id], self.cx, self.cy)
-            if self.is_ndc:
-                ray_o, ray_d = ndc_rays_np(self.h, self.w, self.f, 1., ray_o[np.newaxis], ray_d[np.newaxis])
-                ray_o, ray_d = ray_o[0], ray_d[0]
-        return {'rays_o': ray_o, 'rays_d': ray_d}
+        ray_o = self.rays_o_dict[self.mode][frame_id, hid, wid]
+        ray_d = self.rays_d_dict[self.mode][frame_id, hid, wid]
 
-    def get_item_valid_style(self, idx):
-        style_id = idx // (self.cps_valid.shape[0] * self.h * self.w)
-        frame_id = (idx % (self.cps_valid.shape[0] * self.h * self.w)) // (self.h * self.w)
-        hid = (idx % (self.h * self.w)) // self.w
-        wid = idx % self.w
-        style_feature = self.style_features[style_id]
-        if self.store_rays:
-            ray_o = self.rays_o_valid[frame_id, hid, wid]
-            ray_d = self.rays_d_valid[frame_id, hid, wid]
+        if self.mode == 'train_style':
+            return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'rgb_origin': rgb_origin, 'style_id': style_id, 'frame_id': frame_id}
         else:
-            ray_o, ray_d = get_rays_from_id(hid, wid, self.f, self.cps_valid[frame_id], self.cx, self.cy)
-            if self.is_ndc:
-                ray_o, ray_d = ndc_rays_np(self.h, self.w, self.f, 1., ray_o[np.newaxis], ray_d[np.newaxis])
-                ray_o, ray_d = ray_o[0], ray_d[0]
-        return {'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'style_id': style_id, 'frame_id': frame_id}
+            return {'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'style_id': style_id, 'frame_id': frame_id}
   
 
     def set_mode(self, mode='train'):
@@ -639,8 +579,10 @@ class StyleRaySampler_gen(Dataset):
         self.mode = mode
 
     def __getitem__(self, item):
-        func_dict = {'train': self.get_item_train, 'valid': self.get_item_valid, 'train_style': self.get_item_train_style, 'valid_style': self.get_item_valid_style}
-        return func_dict[self.mode](item)
+        if self.mode in ['train', 'valid']:
+            return self._my_get_item(item)
+        else:
+            return self._my_get_item_style(item)
 
     def __len__(self):
         if self.mode == 'train':

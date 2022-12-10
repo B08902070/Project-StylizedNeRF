@@ -6,7 +6,6 @@ from PIL import Image
 from pathlib import Path
 
 
-
 def InfiniteSampler(n):
     # i = 0
     i = n - 1
