@@ -1,0 +1,13 @@
+torch
+torchvision
+opencv-python
+opencv-contrib-python
+imageio
+pyrender
+tqdm
+matplotlib
+scikit-image
+configargparse
+open3d
+tensorboardX
+pytorch3d
