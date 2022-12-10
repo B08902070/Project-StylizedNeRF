@@ -144,5 +144,8 @@ def config_parser():
 
     parser.add_argument("--TT_far", type=float, default=8., help='Far value of TT dataset NeRF')
 
+    # pretrain nerf
+    parser.add_argument("--pretrain_nerf", action="store_true", help="pretrain nerf")
+
     args = parser.parse_args()
     return args

@@ -16,8 +16,145 @@ from nerf_helper import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def check_nst_preprocess(args, nerf_gen_data_path, sv_path):
-    """check  nerf gen data"""
+def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, nerf_optimizer, style_optimizer, ckpts_path, sv_path):
+    train_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
+                                   mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
+                                   no_ndc=args.no_ndc,
+                                   pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
+
+    train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, num_workers=args.num_workers,
+                                  pin_memory=(args.num_workers > 0))
+
+    """batchify nerf"""
+    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
+    nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
+
+    """Render valid for nerf"""
+    if args.render_valid:
+        render_path = os.path.join(sv_path, 'render_valid_' + str(global_step))
+        valid_dataset = train_dataset
+        valid_dataset.mode = 'valid'
+        valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
+        with torch.no_grad():
+            if args.N_samples_fine > 0:
+                rgb_map, t_map, _, _ = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
+                                              args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine,
+                                              samp_func_fine=samp_func_fine)
+            else:
+                rgb_map, t_map, _, _ = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
+                                              args=args, device=device, sv_path=render_path)
+        print('Done, saving', rgb_map.shape, t_map.shape)
+        exit(0)
+    
+    """Render train for nerf"""
+    if args.render_train:
+        render_path = os.path.join(sv_path, 'render_train_' + str(global_step))
+        render_dataset = train_dataset
+        if args.N_samples_fine > 0:
+            render_train(samp_func=samp_func, nerf_forward=nerf_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
+        else:
+            render_train(samp_func=samp_func, nerf_forward=nerf_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path)
+        exit(0)
+
+    """Training Loop"""
+    # Elapse Measurement
+    data_time, model_time, opt_time = 0, 0, 0
+    fine_time = 0
+    while True:
+        for batch_idx, batch_data in enumerate(train_dataloader):
+            # Get batch data
+            start_t = time.time()
+            rgb_gt, rays_o, rays_d = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d']
+
+            pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=train_dataset.near, far=train_dataset.far, perturb=True)
+            ray_num, pts_num = rays_o.shape[0], args.N_samples
+            rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
+            # Forward and Composition
+            forward_t = time.time()
+            ret = nerf_forward(pts=pts, dirs=rays_d_forward)
+            pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
+            rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, args.sigma_noise_std)
+
+            # Calculate Loss
+            loss_rgb = img2mse(rgb_gt, rgb_exp)
+            loss = loss_rgb
+
+            fine_t = time.time()
+            if args.N_samples_fine > 0:
+                pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
+                pts_num = args.N_samples + args.N_samples_fine
+                rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
+                ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+                pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
+                rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, args.sigma_noise_std)
+                loss_rgb_fine = img2mse(rgb_gt, rgb_exp_fine)
+                loss = loss + loss_rgb_fine
+
+            # Backward and Optimize
+            nerf_optimizer.step(loss)
+
+            if global_step % args.i_print == 0:
+                psnr = mse2psnr(loss_rgb)
+                if args.N_samples_fine > 0:
+                    psnr_fine = mse2psnr(loss_rgb_fine)
+                    tqdm.write(
+                        f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss.data[0]} PSNR: {psnr.data[0]} PSNR Fine: {psnr_fine.data[0]} RGB Loss: {loss_rgb.data[0]} RGB Fine Loss: {loss_rgb_fine.data[0]}"
+                        f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
+                else:
+                    tqdm.write(
+                        f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss_rgb.item()} PSNR: {psnr.item()} RGB Loss: {loss_rgb.item()}"
+                        f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
+
+                data_time, model_time, opt_time = 0, 0, 0
+                fine_time = 0
+
+            # Update Learning Rate
+            decay_rate = 0.1
+            decay_steps = args.lr_decay
+            new_lr = args.lr * (decay_rate ** (global_step / decay_steps))
+            for param_group in nerf_optimizer.param_groups:
+                param_group['lr'] = new_lr
+
+            # Time Measuring
+            end_t = time.time()
+            data_time += (forward_t - start_t)
+            model_time += (fine_t - forward_t)
+            fine_time += 0
+            opt_time += (end_t - fine_t)
+
+            # Rest is logging
+            if global_step % args.i_weights == 0 and global_step > 0 or global_step >= args.origin_step:
+                path = os.path.join(ckpts_path, '{:06d}.tar'.format(global_step))
+                if args.N_samples_fine > 0:
+                    torch.save({
+                        'global_step': global_step,
+                        'nerf': nerf.state_dict(),
+                        'nerf_fine': nerf_fine.state_dict(),
+                        'nerf_optimizer': nerf_optimizer.state_dict(),
+                        'style_optimizer': style_optimizer.state_dict()
+                    }, path)
+                else:
+                    torch.save({
+                        'global_step': global_step,
+                        'nerf': nerf.state_dict(),
+                        'nerf_optimizer': nerf_optimizer.state_dict(),
+                        'style_optimizer': style_optimizer.state_dict()
+                    }, path)
+                print('Saved checkpoints at', path)
+
+                # Delete ckpts
+                ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f]
+                if len(ckpts) > args.ckp_num:
+                    os.remove(ckpts[0])
+
+            global_step += 1
+            if global_step > args.origin_step:
+                return global_step
+   
+
+def check_nst_preprocess(nerf_gen_data_path, sv_path):
+
+    """check nerf gen data"""
     if not os.path.exists(nerf_gen_data_path):
         train_decoder_nerf_cmd = './python3 train_style_modules.py --task decoder_with_nerf'
         print('{} does not exist, please run {} first.'.format(nerf_gen_data_path, train_decoder_nerf_cmd))
@@ -43,28 +180,18 @@ def train(args):
     sv_path = os.path.join(args.basedir, args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
     save_makedir(sv_path)
     shutil.copy(args.config, sv_path)
-    nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
 
     """Create Nerf"""
     nerf = Style_NeRF(args=args, mode='coarse')
     nerf.train()
-    grad_vars = list(nerf.parameters())
-    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
+    grad_vars = list(nerf.parameters())  
     if args.N_samples_fine > 0:
         nerf_fine = Style_NeRF(args=args, mode='fine')
         nerf_fine.train()
         grad_vars += list(nerf_fine.parameters())
-        nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
     nerf_optimizer = nn.Adam(params=grad_vars, lr=args.lr, betas=(0.9, 0.999))
 
-    """Create Style Module"""
-    style_model = Style_Module(args)
-    style_model.train()
-    style_vars = style_model.parameters()
-    style_forward = batchify(lambda **kwargs: style_model(**kwargs), args.chunk)
-    style_optimizer = nn.Adam(params=style_vars, lr=args.lr, betas=(0.9, 0.999))
-
-    """Load Check Point"""
+    """Load Check Point for NeRF"""
     global_step = 0
     ckpts_path = sv_path
     save_makedir(ckpts_path)
@@ -81,6 +208,26 @@ def train(args):
         nerf_optimizer.load_state_dict(ckpt['nerf_optimizer'])
         if args.N_samples_fine > 0:
             nerf_fine.load_state_dict((ckpt['nerf_fine']))
+
+    if args.pretrain_nerf:
+        pretrain_nerf(args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine, 
+                      nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, style_optimizer=style_optimizer, 
+                      ckpts_path=ckpt_path)
+
+
+    nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
+
+    
+
+    """Create Style Module"""
+    style_model = Style_Module(args)
+    style_model.train()
+    style_vars = style_model.parameters()
+    style_forward = batchify(lambda **kwargs: style_model(**kwargs), args.chunk)
+    style_optimizer = nn.Adam(params=style_vars, lr=args.lr, betas=(0.9, 0.999))
+
+    
+    """Load Check Point for style module"""
     ckpts_style = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' in f and 'latent' not in f]
     if len(ckpts_style) > 0 and not args.no_reload:
         ckpt_path_style = ckpts_style[-1]
@@ -105,7 +252,7 @@ def train(args):
                                             no_ndc=args.no_ndc,
                                             pixel_alignment=args.pixel_alignment, spherify=args.spherify,
                                             decode_path=sv_path+'/decoder.pth',
-                                            store_rays=args.store_rays, TT_far=args.TT_far)
+                                            TT_far=args.TT_far)
         """VAE"""
         vae = VAE(data_dim=1024, latent_dim=args.vae_latent, W=args.vae_w, D=args.vae_d,
                   kl_lambda=args.vae_kl_lambda)
@@ -133,38 +280,14 @@ def train(args):
             latents_model.style_latents_mu = Variable(style_latents_mu.detach().cpu().numpy())
             latents_model.style_latents_logvar = Variable(style_latents_logvar.detach().cpu().numpy())
             latents_model.set_latents()
-        latents_model
         vae.cpu()
 
     train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, num_workers=args.num_workers,
                                   pin_memory=(args.num_workers > 0))
 
-    # Render valid
-    if args.render_valid:
-        render_path = os.path.join(sv_path, 'render_valid_' + str(global_step))
-        valid_dataset = train_dataset
-        valid_dataset.mode = 'valid'
-        valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
-        with torch.no_grad():
-            if args.N_samples_fine > 0:
-                rgb_map, t_map, _, _ = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
-                                              args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine,
-                                              samp_func_fine=samp_func_fine)
-            else:
-                rgb_map, t_map, _, _ = render(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=valid_dataloader,
-                                              args=args, device=device, sv_path=render_path)
-        print('Done, saving', rgb_map.shape, t_map.shape)
-        exit(0)
+    
 
-    # Render train
-    if args.render_train:
-        render_path = os.path.join(sv_path, 'render_train_' + str(global_step))
-        render_dataset = train_dataset
-        if args.N_samples_fine > 0:
-            render_train(samp_func=samp_func, nerf_forward=nerf_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
-        else:
-            render_train(samp_func=samp_func, nerf_forward=nerf_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path)
-        exit(0)
+
 
     # Render valid style
     if args.render_valid_style:
@@ -202,107 +325,7 @@ def train(args):
             render_train_style(samp_func=samp_func, nerf_forward=nerf_forward, style_forward=style_forward, latents_model=latents_model, dataset=render_dataset, args=args, device=device, sv_path=render_path, sigma_scale=args.sigma_scale)
         return
 
-    # Training Loop
-    def Origin_train(global_step):
-        # Elapse Measurement
-        data_time, model_time, opt_time = 0, 0, 0
-        fine_time = 0
-        while True:
-            for batch_idx, batch_data in enumerate(train_dataloader):
-
-                # To Device as Tensor
-                for key in batch_data:
-                    batch_data[key] = torch.array(batch_data[key].numpy())
-
-                # Get batch data
-                start_t = time.time()
-                rgb_gt, rays_o, rays_d = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d']
-
-                pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=train_dataset.near, far=train_dataset.far, perturb=True)
-                ray_num, pts_num = rays_o.shape[0], args.N_samples
-                rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-
-                # Forward and Composition
-                forward_t = time.time()
-                ret = nerf_forward(pts=pts, dirs=rays_d_forward)
-                pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
-                rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, args.sigma_noise_std)
-
-                # Calculate Loss
-                loss_rgb = img2mse(rgb_gt, rgb_exp)
-                loss = loss_rgb
-
-                fine_t = time.time()
-                if args.N_samples_fine > 0:
-                    pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
-                    pts_num = args.N_samples + args.N_samples_fine
-                    rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-                    ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
-                    pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
-                    rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, args.sigma_noise_std)
-                    loss_rgb_fine = img2mse(rgb_gt, rgb_exp_fine)
-                    loss = loss + loss_rgb_fine
-
-                # Backward and Optimize
-                nerf_optimizer.step(loss)
-
-                if global_step % args.i_print == 0:
-                    psnr = mse2psnr(loss_rgb)
-                    if args.N_samples_fine > 0:
-                        psnr_fine = mse2psnr(loss_rgb_fine)
-                        tqdm.write(
-                            f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss.data[0]} PSNR: {psnr.data[0]} PSNR Fine: {psnr_fine.data[0]} RGB Loss: {loss_rgb.data[0]} RGB Fine Loss: {loss_rgb_fine.data[0]}"
-                            f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
-                    else:
-                        tqdm.write(
-                            f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss_rgb.item()} PSNR: {psnr.item()} RGB Loss: {loss_rgb.item()}"
-                            f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
-
-                    data_time, model_time, opt_time = 0, 0, 0
-                    fine_time = 0
-
-                # Update Learning Rate
-                decay_rate = 0.1
-                decay_steps = args.lr_decay
-                new_lr = args.lr * (decay_rate ** (global_step / decay_steps))
-                for param_group in nerf_optimizer.param_groups:
-                    param_group['lr'] = new_lr
-
-                # Time Measuring
-                end_t = time.time()
-                data_time += (forward_t - start_t)
-                model_time += (fine_t - forward_t)
-                fine_time += 0
-                opt_time += (end_t - fine_t)
-
-                # Rest is logging
-                if global_step % args.i_weights == 0 and global_step > 0 or global_step >= args.origin_step:
-                    path = os.path.join(ckpts_path, '{:06d}.tar'.format(global_step))
-                    if args.N_samples_fine > 0:
-                        torch.save({
-                            'global_step': global_step,
-                            'nerf': nerf.state_dict(),
-                            'nerf_fine': nerf_fine.state_dict(),
-                            'nerf_optimizer': nerf_optimizer.state_dict(),
-                            'style_optimizer': style_optimizer.state_dict()
-                        }, path)
-                    else:
-                        torch.save({
-                            'global_step': global_step,
-                            'nerf': nerf.state_dict(),
-                            'nerf_optimizer': nerf_optimizer.state_dict(),
-                            'style_optimizer': style_optimizer.state_dict()
-                        }, path)
-                    print('Saved checkpoints at', path)
-
-                    # Delete ckpts
-                    ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f]
-                    if len(ckpts) > args.ckp_num:
-                        os.remove(ckpts[0])
-
-                global_step += 1
-                if global_step > args.origin_step:
-                    return global_step
+    
 
     def Style_train(global_step, train_dataset):
         # Elapse Measurement
@@ -323,7 +346,7 @@ def train(args):
             train_dataset = StyleRaySampler_gen(data_path=args.datadir, gen_path=nerf_gen_data_path, style_path=args.styledir, factor=args.factor,
                                                 mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
                                                 white_bkgd=args.white_bkgd, half_res=args.half_res, no_ndc=args.no_ndc, TT_far=args.TT_far,
-                                                pixel_alignment=args.pixel_alignment, spherify=args.spherify, decode_path=sv_path+'/decoder.pth', store_rays=args.store_rays)
+                                                pixel_alignment=args.pixel_alignment, spherify=args.spherify, decode_path=sv_path+'/decoder.pth')
         else:
             train_dataset.collect_all_stylized_images()
         train_dataset.set_mode('train_style')
@@ -455,7 +478,7 @@ def train(args):
 
     if global_step + 1 < args.origin_step:
         print('Global Step: ', global_step, ' Origin Step: ', args.origin_step)
-        print('Origin Train')
+        print('')
         Origin_train(global_step)
     else:
         check_nst_preprocess(args)
