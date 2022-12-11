@@ -124,7 +124,7 @@ def train_vae(args):
 
     vgg = VGG.vgg
     vgg.load_state_dict(torch.load(args.vgg_pretrained_path))
-    vgg = nn.Sequential(*list(vgg.children())[:31])
+    vgg = nn.Sequential(*list(vgg.children())[:22])
     vgg.eval()
     vgg.to(device)
 
