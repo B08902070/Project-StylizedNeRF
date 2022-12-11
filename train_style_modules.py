@@ -142,8 +142,8 @@ def train_vae(args):
     if os.path.exists(vae_ckpt):
         vae.load_state_dict(torch.load(vae_ckpt))
     optimizer = torch.optim.Adam(vae.parameters(), lr=args.lr)
-    start_i = 
-    for i in tqdm(range(args.max_iter)):
+    step = 25000
+    for i in tqdm(range(step, args.max_iter)):
         adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)
         style_images = next(style_iter).to(device)
         style_features = vgg(style_images)
