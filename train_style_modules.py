@@ -63,6 +63,7 @@ def pretrain_decoder(args):
         network.load_decoder_state_dict(torch.load(ckpt['decoder']))
     # no checkpoints
     else:
+        step=0
         network.load_decoder_state_dict(torch.load('./pretrained/decoder.pth'))
     network.train()
     network.to(device)
@@ -138,11 +139,13 @@ def train_vae(args):
     vae = VAE(data_dim=1024, latent_dim=args.vae_latent, W=args.vae_w, D=args.vae_d, kl_lambda=args.vae_kl_lambda)
     vae.train()
     vae.to(device)
-    vae_ckpt = './pretrained/vae.pth'
+    vae_ckpt = './pretrained/vae.tar'
+    step=0
     if os.path.exists(vae_ckpt):
-        vae.load_state_dict(torch.load(vae_ckpt))
+        vae_data = torch.load(vae_ckpt)
+        step = vae_data['step']
+        vae.load_state_dict(vae_data['vae'])
     optimizer = torch.optim.Adam(vae.parameters(), lr=args.lr)
-    step = 25000
     for i in tqdm(range(step, args.max_iter)):
         adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)
         style_images = next(style_iter).to(device)
@@ -166,7 +169,8 @@ def train_vae(args):
             state_dict = vae.state_dict()
             for key in state_dict.keys():
                 state_dict[key] = state_dict[key].to(torch.device('cpu'))
-            torch.save(state_dict, vae_ckpt)
+            torch.save({'vae': state_dict,
+                        'step': i+1}, vae_ckpt)
     writer.close()
 
 
