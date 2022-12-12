@@ -229,7 +229,7 @@ class RaySampler(Dataset):
             rays_d[i] = tmp_rays_d
         rays_o_valid, rays_d_valid = np.zeros([cps_valid.shape[0], H, W, 3]), np.zeros([cps_valid.shape[0], H, W, 3])
         for i in tqdm(range(cps_valid.shape[0])):
-            tmp_rays_o, tmp_rays_d = get_rays(H, W, K, cps_valid[i, :3, :4], pixel_alignment)
+            tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps_valid[i, :3, :4], pixel_alignment)
             rays_o_valid[i] = tmp_rays_o
             rays_d_valid[i] = tmp_rays_d
 
