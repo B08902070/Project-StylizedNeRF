@@ -2,7 +2,6 @@ import numpy as np
 import os
 import imageio
 
-
 ########## Slightly modified version of LLFF data loading code 
 ##########  see https://github.com/Fyusion/LLFF for original
 

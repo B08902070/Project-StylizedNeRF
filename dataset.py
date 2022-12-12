@@ -59,8 +59,7 @@ def get_rays(H, W, K, c2w, pixel_alignment=True):
     return rays_o, rays_d
 
 def get_rays_np(H, W, K, c2w, pixel_alignment=True):
-    i, j = np.meshgrid(np.linspace(0, W-1, W), np.linspace(0, H-1, H))
-    i, j = i.t(), j.t()
+    i, j = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32), indexing='xy')
 
     if pixel_alignment:
         i, j = i+0.5, j+0.5
@@ -230,7 +229,7 @@ class RaySampler(Dataset):
             rays_d[i] = tmp_rays_d
         rays_o_valid, rays_d_valid = np.zeros([cps_valid.shape[0], H, W, 3]), np.zeros([cps_valid.shape[0], H, W, 3])
         for i in tqdm(range(cps_valid.shape[0])):
-            tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps_valid[i, :3, :4], pixel_alignment)
+            tmp_rays_o, tmp_rays_d = get_rays(H, W, K, cps_valid[i, :3, :4], pixel_alignment)
             rays_o_valid[i] = tmp_rays_o
             rays_d_valid[i] = tmp_rays_d
 
