@@ -421,7 +421,7 @@ def train(args):
         nerf_fine = Style_NeRF(args=args, mode='fine')
         nerf_fine.train()
         grad_vars += list(nerf_fine.parameters())
-    nerf_optimizer = nn.Adam(params=grad_vars, lr=args.lr, betas=(0.9, 0.999))
+    nerf_optimizer = torch.optim.Adam(params=grad_vars, lr=args.lr, betas=(0.9, 0.999))
 
     """Load Check Point for NeRF"""
     global_step = 0
