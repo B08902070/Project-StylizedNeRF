@@ -276,7 +276,7 @@ class RaySampler(Dataset):
         if mode not in modes:
             print('Unknown mode: ', mode, ' Only supports: ', modes)
             exit(-1)
-        if mode != self.mode:
+        if self.mode == None or mode != self.mode:
             self._gen_rays(mode)
 
         self.mode = mode
