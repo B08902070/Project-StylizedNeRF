@@ -235,7 +235,7 @@ class RaySampler(Dataset):
         self.pixel_alignment = pixel_alignment
         self.no_ndc = no_ndc
 
-        self.rays_o, self.rays_d = self._gen_rays(mode)
+        self._gen_rays(mode)
 
     def _gen_rays(self, mode):      
         if mode == 'train':
