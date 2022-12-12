@@ -3,20 +3,21 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import style_function as SF
-from VGG import decoder, vgg
+import VGG
 
 class NST_Net(nn.Module):
     def __init__(self, encoder_pretrained_path):
         super(NST_Net, self).__init__()
        
-        encoder = vgg.load_state_dict(torch.load(encoder_pretrained_path))
+        encoder = VGG.vgg
+        encoder.load_state_dict(torch.load(encoder_pretrained_path))
         encoder_layers = list(encoder.children())
         self.enc_layer1 = encoder_layers[:3]
         self.enc_layer2 = encoder_layers[3:8]
         self.enc_layer3 = encoder_layers[8:13]
         self.enc_layer4 = encoder_layers[13:22]
 
-        self.decoder = decoder
+        self.decoder = VGG.decoder
 
         for i in range(1, 5):
             for param in getattr(self, f'enc_layer{i}').parameters():
