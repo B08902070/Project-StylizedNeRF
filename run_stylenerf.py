@@ -19,9 +19,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, nerf_optimizer, ckpts_path, sv_path):
     train_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
-                                   mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
-                                   no_ndc=args.no_ndc,
-                                   pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
+                                   mode='train', valid_factor=args.valid_factor,no_ndc=args.no_ndc,
+                                   pixel_alignment=args.pixel_alignment, spherify=args.spherify)
     print('Finish create dataset')
     train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, num_workers=args.num_workers,
                                   pin_memory=(args.num_workers > 0))
@@ -34,7 +33,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
     if args.render_valid:
         render_path = os.path.join(sv_path, 'render_valid_' + str(global_step))
         valid_dataset = train_dataset
-        valid_dataset.mode = 'valid'
+        valid_dataset.set_mode('valid')
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
         with torch.no_grad():
             if args.N_samples_fine > 0:
