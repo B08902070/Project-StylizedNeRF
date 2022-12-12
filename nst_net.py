@@ -18,6 +18,10 @@ class NST_Net(nn.Module):
 
         self.decoder = decoder
 
+        for i in range(1, 5):
+            for param in getattr(self, f'enc_layer{i}').parameters():
+                param.requires_grad = False
+
         self.mse_loss = nn.MSELoss()
 
     def load_decoder_state_dict(self, decoder_state_dict):

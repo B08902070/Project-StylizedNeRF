@@ -390,7 +390,7 @@ if __name__ == '__main__':
                         help='Directory to save the log')
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--lr_decay', type=float, default=5e-5)
-    parser.add_argument('--max_iter', type=int, default=50000) # origin 160000
+    parser.add_argument('--max_iter', type=int, default=100000) # origin 160000
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--style_weight', type=float, default=2.)
     parser.add_argument('--content_weight', type=float, default=1.0)
