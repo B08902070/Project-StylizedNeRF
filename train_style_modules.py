@@ -56,11 +56,11 @@ def pretrain_decoder(args):
     if len(ckpts) > 0 and not args.no_reload:
         print('Found ckpts {} from {}'.format(ckpts[-1], ckpts_dir))
         ckpt_path = ckpts[-1]
-        print('Reloading Nerf Model from ', ckpt_path)
+        print('Reloading NST_NET from ', ckpt_path)
         ckpt = torch.load(ckpt_path)
         step = ckpt['step']
         # Load nerf
-        network.load_decoder_state_dict(torch.load(ckpt['decoder']))
+        network.load_decoder_state_dict(ckpt['decoder'])
     # no checkpoints
     else:
         step=0
