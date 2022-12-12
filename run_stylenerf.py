@@ -444,7 +444,7 @@ def train(args):
     """For pretrain nerf"""
     if args.pretrain_nerf or args.render_train or args.render_valid:
         global_step = pretrain_nerf(args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine, 
-                      nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpts_path=ckpt_path)
+                      nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpts_path=ckpts_path)
 
 
     """For train stylenerf"""
