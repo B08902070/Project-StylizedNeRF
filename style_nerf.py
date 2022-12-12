@@ -31,10 +31,8 @@ class Style_NeRF(nn.Module):
             self.netdepth = args.netdepth_fine
             self.netwidth = args.netwidth_fine
         self.net = Style_NeRF_MLP(W=self.netwidth, D=self.netdepth, input_ch_pts=self.input_ch_pts, input_ch_viewdir=self.input_ch_viewdir,
-                             skips=self.skips, act_fn=self.act_fn, use_viewdir=self.use_viewdir, sigma_mul=self.sigma_mul, enable_style=enable_style)        
+                             skips=self.skips, act_fn=self.act_fn, use_viewdir=self.use_viewdir, sigma_mul=self.sigma_mul)        
 
-    def set_enable_style(self, enable_style):
-        self.net.enable_style = enable_style
 
     def forward(self, pts, dirs):
         emb_pts = self.embedder_coor(pts)

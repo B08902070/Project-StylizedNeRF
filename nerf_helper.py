@@ -97,7 +97,7 @@ class Style_NeRF_MLP(nn.Module):
             rgb = self.act_fn(self.rgb_layers[0](remap))
         rgb = F.sigmoid(self.remap_layer[1](rgb))
 
-        return { 'rgb', rgb,  'sigma', sigma.squeeze(-1)}
+        return { 'rgb': rgb,  'sigma': sigma.squeeze(-1)}
 
 
 def sampling_pts_uniform(rays_o, rays_d, N_samples=64, near=0., far=1.05, harmony=False, perturb=False):
