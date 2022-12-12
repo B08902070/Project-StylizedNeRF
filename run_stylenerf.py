@@ -22,7 +22,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                                    mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
                                    no_ndc=args.no_ndc,
                                    pixel_alignment=args.pixel_alignment, spherify=args.spherify, TT_far=args.TT_far)
-
+    print('Finish create dataset')
     train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, num_workers=args.num_workers,
                                   pin_memory=(args.num_workers > 0))
 
@@ -58,6 +58,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
         exit(0)
 
     """Training Loop"""
+    print('start training')
     # Elapse Measurement
     data_time, model_time, opt_time = 0, 0, 0
     fine_time = 0
