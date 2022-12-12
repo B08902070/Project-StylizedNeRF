@@ -25,13 +25,15 @@ def adaIN(feat_content, feat_style):
 
 def content_loss(feat_input, feat_target):
     assert (feat_input.size() == feat_target.size())
-    return nn.MSELoss(feat_input, feat_target)
+    mse_loss = nn.MSELoss()
+    return mse_loss(feat_input, feat_target)
 
 def style_loss(feats_input, feats_target):
     assert (feats_input.size() == feats_target.size())
     loss = 0.0
+    mse_loss = nn.MSELoss()
     for i in range(len(feats_input)):
         mean_input, std_input = cal_mean_std(feats_input[i])
         mean_target, std_target = cal_mean_std(feats_target)
-        loss += (nn.MSELoss(mean_input, mean_target) + nn.MSELoss(std_input, std_target))
+        loss += (mse_loss(mean_input, mean_target) + mse_loss(std_input, std_target))
     return loss
