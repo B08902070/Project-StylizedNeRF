@@ -30,7 +30,8 @@ class Style_NeRF(nn.Module):
         else:
             self.netdepth = args.netdepth_fine
             self.netwidth = args.netwidth_fine
-        self.net = Style_NeRF_MLP(W=self.netwidth, D=self.netdepth, input_ch_pts=self.input_ch_pts, input_ch_viewdir=self.input_ch_viewdir, \
+
+        self.mlp = Style_NeRF_MLP(W=self.netwidth, D=self.netdepth, input_ch_pts=self.input_ch_pts, input_ch_viewdir=self.input_ch_viewdir, \
                              skips=self.skips, act_fn=self.act_fn, use_viewdir=self.use_viewdir, sigma_mul=self.sigma_mul)        
 
 
@@ -38,7 +39,7 @@ class Style_NeRF(nn.Module):
         emb_pts = self.embedder_coor(pts)
         emb_dirs = self.embedder_dir(dirs)
 
-        out = self.net(emb_pts, emb_dirs)
+        out = self.mlp(emb_pts, emb_dirs)
         out['dirs'] = dirs
         out['pts'] = emb_pts
         return out
