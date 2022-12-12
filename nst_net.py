@@ -28,11 +28,11 @@ class NST_Net(nn.Module):
     def load_decoder_state_dict(self, decoder_state_dict):
         self.decoder.load_state_dict(decoder_state_dict)
 
-    def encode(self, input_img):
+    def encode(self, input):
         feats=[]
         for i in range(1, 5):
-            feat = getattr(self, f'enc_layer{i}')(input_img)
-            feats.append(feat)
+            input = getattr(self, f'enc_layer{i}')(input)
+            feats.append(input)
 
         return feats
 
