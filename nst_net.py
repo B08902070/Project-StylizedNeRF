@@ -12,10 +12,10 @@ class NST_Net(nn.Module):
         encoder = VGG.vgg
         encoder.load_state_dict(torch.load(encoder_pretrained_path))
         encoder_layers = list(encoder.children())
-        self.enc_layer1 = nn.Sequential(encoder_layers[:3])
-        self.enc_layer2 = nn.Sequential(encoder_layers[3:8])
-        self.enc_layer3 = nn.Sequential(encoder_layers[8:13])
-        self.enc_layer4 = nn.Sequential(encoder_layers[13:22])
+        self.enc_layer1 = nn.Sequential(*encoder_layers[:3])
+        self.enc_layer2 = nn.Sequential(*encoder_layers[3:8])
+        self.enc_layer3 = nn.Sequential(*encoder_layers[8:13])
+        self.enc_layer4 = nn.Sequential(*encoder_layers[13:22])
 
         self.decoder = VGG.decoder
 
