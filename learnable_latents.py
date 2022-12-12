@@ -67,15 +67,6 @@ class VAE(nn.Module):
         self.kl_lambda = kl_lambda
         self.mse_loss = nn.MSELoss()
 
-        # set fully connected layers
-        self.fc_layers = []
-        cur_dim = latent_dim
-        for _ in range(D-1):
-            self.fc_layers.append(nn.Linear(cur_dim, W))
-            cur_dim = W
-        self.fc_layers.append(nn.Linear(cur_dim, data_dim))
-        self.fc_layers = nn.ModuleList(self.fc_layers)
-
     def encode(self, x):
         mu, sigma = self.encoder(x)
         output = reparameterize(mu, sigma)
