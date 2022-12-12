@@ -102,6 +102,7 @@ def pretrain_decoder(args):
         writer.add_scalar('loss_style', loss_s.item(), i + 1)
 
         if (i + 1) % args.save_model_interval == 0 or (i + 1) == args.max_iter:
+            print("Loss: %.3f | Content Loss: %.3f| Style Loss: %.3f" % (loss.item(), loss_c.item(), loss_s.item()))
             state_dict = network.decoder.state_dict()
             for key in state_dict.keys():
                 state_dict[key] = state_dict[key].to(torch.device('cpu'))
