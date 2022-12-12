@@ -295,23 +295,18 @@ class StyleRaySampler(Dataset):
     def __init__(self, data_path, style_path, factor=2., mode='train', valid_factor=3, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
         super().__init__()
 
-        if dataset_type == 'llff':
-            images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
-            hwf = poses[0, :3, -1]
-            poses = poses[:, :3, :4]
-            print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
-            print('DEFINING BOUNDS')
-            if no_ndc:
-                near = np.ndarray.min(bds) * .9
-                far = np.ndarray.max(bds) * 1.
-            else:
-                near = 0.
-                far = 1.
-            print('NEAR FAR', near, far)
+        images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
+        hwf = poses[0, :3, -1]
+        poses = poses[:, :3, :4]
+        print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
+        print('DEFINING BOUNDS')
+        if no_ndc:
+            near = np.ndarray.min(bds) * .9
+            far = np.ndarray.max(bds) * 1.
         else:
-            images = poses = hwf = K = near = far = None
-            print('Unknown dataset type', dataset_type, 'exiting')
-            exit(0)
+            near = 0.
+            far = 1.
+        print('NEAR FAR', near, far)
 
         H, W, focal = hwf
         H, W = int(H), int(W)
@@ -326,22 +321,6 @@ class StyleRaySampler(Dataset):
         """Validation Rays"""
         cps = np.concatenate([poses[:, :3, :4], np.zeros_like(poses[:, :1, :])], axis=1)
         cps[:, 3, 3] = 1.
-        cps_valid = view_synthesis(cps, valid_factor)
-        print('get rays of training and validation')
-        rays_o, rays_d = np.zeros([cps.shape[0], H, W, 3]), np.zeros([cps.shape[0], H, W, 3])
-        for i in tqdm(range(cps.shape[0])):
-            tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps[i, :3, :4], pixel_alignment)
-            rays_o[i] = tmp_rays_o
-            rays_d[i] = tmp_rays_d
-        rays_o_valid, rays_d_valid = np.zeros([cps_valid.shape[0], H, W, 3]), np.zeros([cps_valid.shape[0], H, W, 3])
-        for i in tqdm(range(cps_valid.shape[0])):
-            tmp_rays_o, tmp_rays_d = get_rays_np(H, W, K, cps_valid[i, :3, :4], pixel_alignment)
-            rays_o_valid[i] = tmp_rays_o
-            rays_d_valid[i] = tmp_rays_d
-
-        if dataset_type == 'llff' and not no_ndc:
-            rays_o, rays_d = ndc_rays_np(H, W, K[0][0], 1., rays_o, rays_d)
-            rays_o_valid, rays_d_valid = ndc_rays_np(H, W, K[0][0], 1., rays_o_valid, rays_d_valid)
 
         """Style Data"""
         if not os.path.exists(data_path + '/stylized_' + str(factor) + '/' + '/stylized_data.npz'):
@@ -355,14 +334,14 @@ class StyleRaySampler(Dataset):
             print("Dataset Creation Done !")
 
         """Setting Attributes"""
-        self.set_mode(mode)
+        self.mode = mode
         self.frame_num = cps.shape[0]
         self.h, self.w, self.f = H, W, focal
         self.hwf = hwf
         self.K = K
         self.cx, self.cy = K[0, 2], K[1, 2]
         self.cps, self.intr, self.images = cps, K, images
-        self.cps_valid = cps_valid
+        self.cps_valid = view_synthesis(cps, valid_factor) 
         self.rays_num = self.frame_num * self.h * self.w
         self.near, self.far = near, far
 
@@ -372,16 +351,39 @@ class StyleRaySampler(Dataset):
         self.style_paths = style_paths
 
         self.style_num = self.style_images.shape[0]
-        self.rays_o_dict = {'train': rays_o, 'valid':rays_o_valid, 'train_style':rays_o, 'valid_style':rays_o_valid}
-        self.rays_d_dict = {'train': rays_d, 'valid':rays_d_valid, 'train_style':rays_d, 'valid_style':rays_d_valid}
+        self.rays_o, self.rays_d = None, None
+        self.pixel_alignment = pixel_alignment
+        self.no_ndc = no_ndc
+
+        self._gen_rays(mode)
+
+    def _gen_rays(self, mode):      
+        if mode == 'train':
+            print('get rays of training')
+            if self.rays_o == None and self.rays_d == None:
+                self.rays_o, self.rays_d = np.zeros([self.cps.shape[0], self.h, self.w, 3]), np.zeros([self.cps.shape[0], self.h, self.w, 3])
+            for i in tqdm(range(self.cps.shape[0])):
+                tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps[i, :3, :4], self.pixel_alignment)
+                self.rays_o[i] = tmp_rays_o
+                self.rays_d[i] = tmp_rays_d
+        else:
+            print('get rays of validation')
+            if self.rays_o == None and self.rays_d == None:   
+                self.rays_o, self.rays_d = np.zeros([self.cps_valid.shape[0], self.h, self.w, 3]), np.zeros([self.cps_valid.shape[0], self.h, self.w, 3])
+            for i in tqdm(range(self.cps_valid.shape[0])):
+                tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps_valid[i, :3, :4], self.pixel_alignment)
+                self.rays_o[i] = tmp_rays_o
+                self.rays_d[i] = tmp_rays_d
+        if not self.no_ndc:
+            self.rays_o, self.rays_d = ndc_rays_np(self.h, self.w, self.K[0][0], 1., self.rays_o, self.rays_d)
 
     def _my_get_item(self, idx):
         frame_id = idx // (self.h * self.w)
         pixel_id = idx % (self.h * self.w)
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
-        ray_o = self.rays_o_dict[self.mode][frame_id, hid, wid]
-        ray_d = self.rays_d_dict[self.mode][frame_id, hid, wid]
+        ray_o = self.rays_o[frame_id, hid, wid]
+        ray_d = self.rays_d[frame_id, hid, wid]
         if self.mode == 'train':
             return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
         else:
@@ -396,8 +398,8 @@ class StyleRaySampler(Dataset):
         rgb = stylized_contents[hid, wid]
         rgb_origin = self.images[frame_id, hid, wid]
         style_feature = self.style_features[style_id]
-        ray_o = self.rays_o_dict[self.mode][frame_id, hid, wid]
-        ray_d = self.rays_d_dict[self.mode][frame_id, hid, wid]
+        ray_o = self.rays_o[frame_id, hid, wid]
+        ray_d = self.rays_d[frame_id, hid, wid]
         style_image = torch.from_numpy(self.style_images[style_id]).float()
         if self.mode == 'train_style':
             return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d, 'style_feature': style_feature, 'rgb_origin': rgb_origin, 'style_id': style_id, 'frame_id': frame_id}
@@ -410,6 +412,8 @@ class StyleRaySampler(Dataset):
         if mode not in modes:
             print('Unknown mode: ', mode, ' Only supports: ', modes)
             exit(-1)
+        if mode != self.mode:
+            self._gen_rays(mode)
         self.mode = mode
 
     def __getitem__(self, item):
