@@ -414,7 +414,7 @@ def train(args):
     shutil.copy(args.config, sv_path)
 
     """Create Nerf"""
-    nerf = Style_NeRF(args=args, mode='coarse')
+    nerf = Style_NeRF(args, mode='coarse')
     nerf.train()
     grad_vars = list(nerf.parameters())  
     if args.N_samples_fine > 0:

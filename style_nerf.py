@@ -10,7 +10,8 @@ act_dict = {'relu': nn.ReLU, 'sigmoid': nn.Sigmoid, 'elu': nn.ELU, 'tanh': nn.Ta
           
 
 class Style_NeRF(nn.Module):
-    def __init__(self, args, mode='coarse', enable_style=False):
+    def __init__(self, args, mode='coarse'):
+        super(Style_NeRF, self).__init__()
         self.use_viewdir = args.use_viewdir
         self.act_fn = act_dict[args.act_type]
 
