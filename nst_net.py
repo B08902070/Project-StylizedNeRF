@@ -30,8 +30,8 @@ class NST_Net(nn.Module):
 
     def encode(self, input_img):
         feats=[]
-        for i in range(4):
-            feat = getattr(self, 'enc_layer{:d}'.format(i+1))(input_img)
+        for i in range(1, 5):
+            feat = getattr(self, f'enc_layer{i}')(input_img)
             feats.append(feat)
 
         return feats
@@ -41,7 +41,7 @@ class NST_Net(nn.Module):
         feats_content = self.encode(content_img)
         feats_style = self.encode(style_img)
         feat_stylized = SF.adaIN(feats_content[-1], feats_style[-1])
-        feat_stylized = alpha * feat_stylized + (1-alpha) * feats_content
+        feat_stylized = alpha * feat_stylized + (1-alpha) * feats_content[-1]
 
         stylized_img = torch.clamp(self.decoder(feat_stylized), 0, 1)
         feats_stylized_img = self.encode(stylized_img)
