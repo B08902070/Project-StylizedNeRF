@@ -221,7 +221,7 @@ class RaySampler(Dataset):
         print('Camera Pose: ', cps.shape)
 
         """Setting Attributes"""
-        self.set_mode(mode)
+        self.mode = mode
         self.frame_num = cps.shape[0]
         self.h, self.w, self.f = H, W, focal
         self.hwf = hwf
@@ -276,7 +276,7 @@ class RaySampler(Dataset):
         if mode not in modes:
             print('Unknown mode: ', mode, ' Only supports: ', modes)
             exit(-1)
-        if self.mode == None or mode != self.mode:
+        if mode != self.mode:
             self._gen_rays(mode)
 
         self.mode = mode
