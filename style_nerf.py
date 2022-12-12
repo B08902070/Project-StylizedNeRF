@@ -37,6 +37,7 @@ class Style_NeRF(nn.Module):
 
 
     def forward(self, pts, dirs):
+        print(type(pts))
         emb_pts = self.embedder_coor.embed(pts)
         emb_dirs = self.embedder_dir.embed(dirs)
 
