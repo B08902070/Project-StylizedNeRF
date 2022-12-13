@@ -236,10 +236,8 @@ class RaySampler(Dataset):
 
     def _gen_rays(self, frame_id, hid, wid):
         if self.mode == 'train':
-            print('get rays of training')
             rays_o, rays_d = get_rays_np(self.h, self.w, self.K, self.cps[frame_id, :3, :4], self.pixel_alignment)
         else:
-            print('get rays of validation')
             rays_o, rays_d = get_rays_np(self.h, self.w, self.K, self.cps_valid[i, :3, :4], self.pixel_alignment)
 
         if not self.no_ndc:
