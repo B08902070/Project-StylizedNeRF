@@ -11,7 +11,6 @@ from pathlib import Path
 from torchvision import transforms
 from torch.utils.data import Dataset
 
-import VGG
 from nst_net import NST_Net
 from load_llff import load_llff_data
 
@@ -184,34 +183,56 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
 
     return style_names, style_paths, style_images, style_features
 
+def get_batch_rays(data_path, device = None, factor=2., mode='train', valid_factor=3, no_ndc=False, pixel_alignment=False, spherify=False):
+    """load llff data"""
+    images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
+
+    hwf = poses[0, :3, -1]
+    poses = poses[:, :3, :4]
+    print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
+    print('DEFINING BOUNDS')
+    if no_ndc:
+        near = np.ndarray.min(bds) * .9
+        far = np.ndarray.max(bds) * 1.
+    else:
+        near = 0.
+        far = 1.
+    print('NEAR FAR', near, far)
+
+    H, W, focal = hwf
+    H, W = int(H), int(W)
+    hwf = [H, W, focal]
+
+    K = np.array([
+        [focal, 0, 0.5*W],
+        [0, focal, 0.5*H],
+        [0, 0, 1]
+    ])
+
+    print('get rays')
+    rays = np.stack([get_rays_np(H, W, K, p) for p in poses[:,:3,:4]], 0) # [N, ro+rd, H, W, 3]
+    print('done, concats')
+    rays_rgb = np.concatenate([rays, images[:,None]], 1) # [N, ro+rd+rgb, H, W, 3]
+    rays_rgb = np.transpose(rays_rgb, [0,2,3,1,4]) # [N, H, W, ro+rd+rgb, 3]
+    rays_rgb = np.reshape(rays_rgb, [-1,3,3]) # [(N-1)*H*W, ro+rd+rgb, 3]
+    rays_rgb = rays_rgb.astype(np.float32)
+    print('shuffle rays')
+    np.random.shuffle(rays_rgb)
+    print('done')
+
+    # Move training data to GPU
+    images = torch.Tensor(images).to(device)
+    poses = torch.Tensor(poses).to(device)
+    rays_rgb = torch.Tensor(rays_rgb).to(device)
+
+    return images, poses, rays_rgb, near, far
+
 
 class RaySampler(Dataset):
-    def __init__(self, data_path, device=None, factor=2., mode='train', valid_factor=3, no_ndc=False, pixel_alignment=False, spherify=False):
+    def __init__(self, , device=None):
         super().__init__()
 
-        images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
-        hwf = poses[0, :3, -1]
-        poses = poses[:, :3, :4]
-        print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
-        print('DEFINING BOUNDS')
-        if no_ndc:
-            near = np.ndarray.min(bds) * .9
-            far = np.ndarray.max(bds) * 1.
-        else:
-            near = 0.
-            far = 1.
-        print('NEAR FAR', near, far)
-
-        H, W, focal = hwf
-        H, W = int(H), int(W)
-        hwf = [H, W, focal]
-
-        K = np.array([
-            [focal, 0, 0.5*W],
-            [0, focal, 0.5*H],
-            [0, 0, 1]
-        ])
-
+        
         """Validation Rays"""
         cps = np.concatenate([poses[:, :3, :4], np.zeros_like(poses[:, :1, :])], axis=1)
         cps[:, 3, 3] = 1.
