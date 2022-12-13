@@ -2,7 +2,7 @@ import time
 import shutil
 from nst_net import NST_Net
 from rendering import *
-
+from tqdm import tqdm
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -62,7 +62,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
     data_time, model_time, opt_time = 0, 0, 0
     fine_time = 0
     while True:
-        for batch_idx, batch_data in enumerate(train_dataloader):
+        for batch_idx, batch_data in tqdm(train_dataloader):
             # Get batch data
             start_t = time.time()
             batch_data.to(device)
