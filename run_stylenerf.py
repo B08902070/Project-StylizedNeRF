@@ -65,6 +65,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
         for batch_idx, batch_data in enumerate(train_dataloader):
             # Get batch data
             start_t = time.time()
+            batch_data.to(device)
             rgb_gt, rays_o, rays_d = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d']
 
             pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=train_dataset.near, far=train_dataset.far, perturb=True)
