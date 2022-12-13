@@ -221,7 +221,7 @@ class RaySampler(Dataset):
         print('Camera Pose: ', cps.shape)
 
         """Setting Attributes"""
-        self.set_mode(mode)
+        self.mode = mode
         self.frame_num = cps.shape[0]
         self.h, self.w, self.f = H, W, focal
         self.hwf = hwf
@@ -231,20 +231,33 @@ class RaySampler(Dataset):
         self.cps_valid = view_synthesis(cps, valid_factor) 
         self.rays_num = self.frame_num * self.h * self.w
         self.near, self.far = near, far
+        self.rays_o, self.rays_d = None, None
         self.pixel_alignment = pixel_alignment
         self.no_ndc = no_ndc
 
-    def _gen_rays(self, frame_id, hid, wid):
-        if self.mode == 'train':
+        self._gen_rays(mode)
+
+    def _gen_rays(self, mode):
+        if mode == 'train':
             print('get rays of training')
-            rays_o, rays_d = get_rays_np(self.h, self.w, self.K, self.cps[frame_id, :3, :4], self.pixel_alignment)
+            if self.rays_o != None and self.rays_d != None:
+                del(self.rays_o);   del(self.rays_d)
+            self.rays_o, self.rays_d = np.zeros([self.cps.shape[0], self.h, self.w, 3]), np.zeros([self.cps.shape[0], self.h, self.w, 3])
+            for i in tqdm(range(self.cps.shape[0])):
+                tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps[i, :3, :4], self.pixel_alignment)
+                self.rays_o[i] = tmp_rays_o
+                self.rays_d[i] = tmp_rays_d
         else:
             print('get rays of validation')
-            rays_o, rays_d = get_rays_np(self.h, self.w, self.K, self.cps_valid[i, :3, :4], self.pixel_alignment)
-
+            if self.rays_o != None and self.rays_d != None:
+                del(self.rays_o);   del(self.rays_d)
+            self.rays_o, self.rays_d = np.zeros([self.cps_valid.shape[0], self.h, self.w, 3]), np.zeros([self.cps_valid.shape[0], self.h, self.w, 3])
+            for i in tqdm(range(self.cps_valid.shape[0])):
+                tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps_valid[i, :3, :4], self.pixel_alignment)
+                self.rays_o[i] = tmp_rays_o
+                self.rays_d[i] = tmp_rays_d
         if not self.no_ndc:
-            rays_o, rays_d = ndc_rays_np(self.h, self.w, self.K[0][0], 1., rays_o, rays_d)
-        return rays_o[hid, wid], rays_d[hid, wid]
+            self.rays_o, self.rays_d = ndc_rays_np(self.h, self.w, self.K[0][0], 1., self.rays_o, self.rays_d)
 
 
     def _my_get_item(self, idx):
@@ -252,7 +265,8 @@ class RaySampler(Dataset):
         pixel_id = idx % (self.h * self.w)
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
-        ray_o, ray_d = self._gen_rays(frame_id, hid, wid)
+        ray_o = self.rays_o[frame_id, hid, wid]
+        ray_d = self.rays_d[frame_id, hid, wid]
         if self.mode == 'train':
             return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
         else:
@@ -264,6 +278,8 @@ class RaySampler(Dataset):
         if mode not in modes:
             print('Unknown mode: ', mode, ' Only supports: ', modes)
             exit(-1)
+        if mode != self.mode:
+            self._gen_rays(mode)
 
         self.mode = mode
 
