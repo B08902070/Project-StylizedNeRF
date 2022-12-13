@@ -186,7 +186,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
 
 
 class RaySampler(Dataset):
-    def __init__(self, data_path, factor=2., mode='train', valid_factor=3, no_ndc=False, pixel_alignment=False, spherify=False):
+    def __init__(self, data_path, device=None, factor=2., mode='train', valid_factor=3, no_ndc=False, pixel_alignment=False, spherify=False):
         super().__init__()
 
         images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
@@ -253,6 +253,7 @@ class RaySampler(Dataset):
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
         ray_o, ray_d = self._gen_rays(frame_id, hid, wid)
+        ray_o.to(device); ray_d.to(device)
         if self.mode == 'train':
             return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
         else:
