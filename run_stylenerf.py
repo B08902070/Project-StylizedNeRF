@@ -65,10 +65,10 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
         for batch_idx, batch_data in tqdm(train_dataloader):
             # Get batch data
             start_t = time.time()
-            batch_data.to(device)
             rgb_gt, rays_o, rays_d = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d']
 
             pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=train_dataset.near, far=train_dataset.far, perturb=True)
+            print('pts got!')
             ray_num, pts_num = rays_o.shape[0], args.N_samples
             rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
             # Forward and Composition
@@ -84,9 +84,11 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
             fine_t = time.time()
             if args.N_samples_fine > 0:
                 pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
+                print('pts fine got!')
                 pts_num = args.N_samples + args.N_samples_fine
                 rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
                 ret = nerf_forward_fine(pts=pts_fine, dirs=rays_d_forward)
+                print('ret get!')
                 pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
                 rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, args.sigma_noise_std)
                 loss_rgb_fine = img2mse(rgb_gt, rgb_exp_fine)
