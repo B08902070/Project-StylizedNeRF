@@ -253,7 +253,6 @@ class RaySampler(Dataset):
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
         ray_o, ray_d = self._gen_rays(frame_id, hid, wid)
-        ray_o.to(device); ray_d.to(device)
         if self.mode == 'train':
             return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
         else:

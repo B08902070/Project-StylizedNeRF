@@ -23,7 +23,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                                    pixel_alignment=args.pixel_alignment, spherify=args.spherify)
     print('Finish create dataset')
     train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, num_workers=args.num_workers,
-                                  pin_memory=(args.num_workers > 0))
+                                  pin_memory=(args.num_workers > 0), generator=torch.Generator(device=device))
 
     """batchify nerf"""
     nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
