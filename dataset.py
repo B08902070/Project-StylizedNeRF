@@ -233,6 +233,8 @@ class RaySampler(Dataset):
         self.near, self.far = near, far
         self.pixel_alignment = pixel_alignment
         self.no_ndc = no_ndc
+        self.pre_frame_id = None
+        self.rays_o, self.rays_d = None, None
 
     def _gen_rays(self, frame_id, hid, wid):
         if self.mode == 'train':
@@ -242,7 +244,7 @@ class RaySampler(Dataset):
 
         if not self.no_ndc:
             rays_o, rays_d = ndc_rays_np(self.h, self.w, self.K[0][0], 1., rays_o, rays_d)
-        return rays_o[hid, wid], rays_d[hid, wid]
+        return rays_o, rays_d
 
 
     def _my_get_item(self, idx):
@@ -250,7 +252,12 @@ class RaySampler(Dataset):
         pixel_id = idx % (self.h * self.w)
         hid, wid = pixel_id // self.w, pixel_id % self.w
         rgb = self.images[frame_id, hid, wid]
-        ray_o, ray_d = self._gen_rays(frame_id, hid, wid)
+
+        if frame_id != self.pre_frame_id:
+            self.rays_o, self.rays_d = self._gen_rays(frame_id)
+            self.pre_frame_id = frame_id
+
+        ray_o, ray_d = self.rays_o[hid, wid], self.rays_d[hid, wid]
         if self.mode == 'train':
             return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
         else:
