@@ -27,7 +27,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                                   pin_memory=(args.num_workers > 0), generator=torch.Generator(device=device))
 
     """batchify nerf"""
-    nerf.to(decie)
+    nerf.to(device)
     nerf_fine.to(device)
     nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
     nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
