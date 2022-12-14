@@ -101,7 +101,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                 if args.N_samples_fine > 0:
                     psnr_fine = mse2psnr(loss_rgb_fine)
                     tqdm.write(
-                        f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss.data[0]} PSNR: {psnr.data[0]} PSNR Fine: {psnr_fine.data[0]} RGB Loss: {loss_rgb.data[0]} RGB Fine Loss: {loss_rgb_fine.data[0]}"
+                        f"[ORIGIN TRAIN] Iter: {global_step} Loss: {loss.item()} PSNR: {psnr.item()} PSNR Fine: {psnr_fine.item()} RGB Loss: {loss_rgb.item()} RGB Fine Loss: {loss_rgb_fine.item()}"
                         f" Data time: {np.round(data_time, 2)}s Model time: {np.round(model_time, 2)}s Fine time: {np.round(fine_time, 2)}s Optimization time: {np.round(opt_time, 2)}s")
                 else:
                     tqdm.write(
