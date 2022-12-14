@@ -214,7 +214,7 @@ def alpha_composition(pts_rgb, pts_sigma, t_values, sigma_noise_std=0., white_bk
         weights: [num_rays, num_samples]. Weights assigned to each sampled color.
         t_exp: [num_rays]. Estimated distance to object.
     """
-    sigma2alpha = lambda raw, dists, act_fn=nn.relu: 1. - torch.exp(-act_fn(raw) * dists)
+    sigma2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
 
     delta = t_values[..., 1:] - t_values[..., :-1]
     delta = torch.cat([delta, torch.array([1e10]).expand(delta[..., :1].shape)], -1)  # [N_rays, N_samples]
