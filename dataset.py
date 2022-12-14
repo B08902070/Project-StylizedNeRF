@@ -245,8 +245,8 @@ class RaySampler(Dataset):
             self.rays_o, self.rays_d = np.zeros([self.cps.shape[0], self.h, self.w, 3]), np.zeros([self.cps.shape[0], self.h, self.w, 3])
             for i in tqdm(range(self.cps.shape[0])):
                 tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps[i, :3, :4], self.pixel_alignment)
-                self.rays_o[i] = tmp_rays_o
-                self.rays_d[i] = tmp_rays_d
+                self.rays_o[i] = tmp_rays_o.astype(np.float32)
+                self.rays_d[i] = tmp_rays_d.astype(np.float32)
         else:
             print('get rays of validation')
             if self.rays_o != None and self.rays_d != None:
@@ -254,8 +254,8 @@ class RaySampler(Dataset):
             self.rays_o, self.rays_d = np.zeros([self.cps_valid.shape[0], self.h, self.w, 3]), np.zeros([self.cps_valid.shape[0], self.h, self.w, 3])
             for i in tqdm(range(self.cps_valid.shape[0])):
                 tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps_valid[i, :3, :4], self.pixel_alignment)
-                self.rays_o[i] = tmp_rays_o
-                self.rays_d[i] = tmp_rays_d
+                self.rays_o[i] = tmp_rays_o.astype(np.float32)
+                self.rays_d[i] = tmp_rays_d.astype(np.float32)
         if not self.no_ndc:
             self.rays_o, self.rays_d = ndc_rays_np(self.h, self.w, self.K[0][0], 1., self.rays_o, self.rays_d)
 
