@@ -221,7 +221,7 @@ def alpha_composition(pts_rgb, pts_sigma, t_values, sigma_noise_std=0., white_bk
 
     noise = 0.
     if sigma_noise_std > 0:
-        noise = nn.init.normal_(size = pts_sigma.shape, dtype = pts_sigma.dtype) * sigma_noise_std
+        noise = torch.normal(size = pts_sigma.shape, dtype = pts_sigma.dtype) * sigma_noise_std
 
     alpha = sigma2alpha(F.relu(pts_sigma + noise), delta)  # [N_rays, N_samples]
     weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]
