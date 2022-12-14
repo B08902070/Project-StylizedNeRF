@@ -82,9 +82,10 @@ class Style_NeRF_MLP(nn.Module):
         # for density
         base = self.base_layers[0](pts)
         for i in range(1, len(self.base_layers)):
+            base = self.act_fn(self.base_layers[i](base))
             if i in self.skips:
                 base = torch.cat((pts, base), dim=-1)
-            base = self.act_fn(self.base_layers[i](base))
+            
 
         sigma = self.sigma_layer(base)
         sigma = sigma + F.relu(sigma) * self.sigma_mul
