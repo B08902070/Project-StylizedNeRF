@@ -188,7 +188,7 @@ def batchify(fn, chunk=1024*32):
         all_ret = {}
         for i in range(0, x.shape[0], chunk):
             end = min(i + chunk, x.shape[0])
-            chunk_kwargs = dict([[key, kwargs[key][i: end]] for key in kwargs.keys()])
+            chunk_kwargs = dict([[key, kwargs[key][i: end].to(device)] for key in kwargs.keys()])
             ret = fn(**chunk_kwargs)
             for k in ret:
                 if k not in all_ret:

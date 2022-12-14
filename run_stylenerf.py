@@ -27,8 +27,6 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                                   pin_memory=(args.num_workers > 0), generator=torch.Generator(device=device))
 
     """batchify nerf"""
-    nerf.to(device)
-    nerf_fine.to(device)
     nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
     nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
 
@@ -421,11 +419,11 @@ def train(args):
     shutil.copy(args.config, sv_path)
 
     """Create Nerf"""
-    nerf = Style_NeRF(args, mode='coarse')
+    nerf = Style_NeRF(args, mode='coarse').to(device)
     nerf.train()
     grad_vars = list(nerf.parameters())  
     if args.N_samples_fine > 0:
-        nerf_fine = Style_NeRF(args=args, mode='fine')
+        nerf_fine = Style_NeRF(args=args, mode='fine').to(device)
         nerf_fine.train()
         grad_vars += list(nerf_fine.parameters())
     nerf_optimizer = torch.optim.Adam(params=grad_vars, lr=args.lr, betas=(0.9, 0.999))
