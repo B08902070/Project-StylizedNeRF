@@ -29,7 +29,7 @@ def _minify(basedir, factors=[], resolutions=[]):
     wd = os.getcwd()
 
     for r in factors + resolutions:
-        if isinstance(r, int) or isinstance(r, float):
+        if isinstance(r, int):
             name = 'images_{}'.format(r)
             resizearg = '{}%'.format(100./r)
         else:

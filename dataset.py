@@ -11,6 +11,7 @@ from pathlib import Path
 from torchvision import transforms
 from torch.utils.data import Dataset
 
+import VGG
 from nst_net import NST_Net
 from load_llff import load_llff_data
 
@@ -183,50 +184,113 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
 
     return style_names, style_paths, style_images, style_features
 
-def get_batch_rays(data_path, device = None, factor=2., mode='train', valid_factor=3, no_ndc=False, pixel_alignment=False, spherify=False):
-    """load llff data"""
-    images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
 
-    hwf = poses[0, :3, -1]
-    poses = poses[:, :3, :4]
-    print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
-    print('DEFINING BOUNDS')
-    if no_ndc:
-        near = np.ndarray.min(bds) * .9
-        far = np.ndarray.max(bds) * 1.
-    else:
-        near = 0.
-        far = 1.
-    print('NEAR FAR', near, far)
+class RaySampler(Dataset):
+    def __init__(self, data_path, factor=8, mode='train', valid_factor=3, no_ndc=False, pixel_alignment=False, spherify=False):
+        super().__init__()
 
-    H, W, focal = hwf
-    H, W = int(H), int(W)
-    hwf = [H, W, focal]
+        images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
+        hwf = poses[0, :3, -1]
+        poses = poses[:, :3, :4]
+        print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
+        print('DEFINING BOUNDS')
+        if no_ndc:
+            near = np.ndarray.min(bds) * .9
+            far = np.ndarray.max(bds) * 1.
+        else:
+            near = 0.
+            far = 1.
+        print('NEAR FAR', near, far)
 
-    K = np.array([
-        [focal, 0, 0.5*W],
-        [0, focal, 0.5*H],
-        [0, 0, 1]
-    ])
+        H, W, focal = hwf
+        H, W = int(H), int(W)
+        hwf = [H, W, focal]
 
-    print('get rays')
-    rays = np.stack([get_rays_np(H, W, K, p) for p in poses[:,:3,:4]], 0) # [N, ro+rd, H, W, 3]
-    print('done, concats')
-    rays_rgb = np.concatenate([rays, images[:,None]], 1) # [N, ro+rd+rgb, H, W, 3]
-    rays_rgb = np.transpose(rays_rgb, [0,2,3,1,4]) # [N, H, W, ro+rd+rgb, 3]
-    rays_rgb = np.reshape(rays_rgb, [-1,3,3]) # [(N-1)*H*W, ro+rd+rgb, 3]
-    rays_rgb = rays_rgb.astype(np.float32)
-    print('shuffle rays')
-    np.random.shuffle(rays_rgb)
-    print('done')
+        K = np.array([
+            [focal, 0, 0.5*W],
+            [0, focal, 0.5*H],
+            [0, 0, 1]
+        ])
 
-    # Move training data to GPU
-    images = torch.Tensor(images).to(device)
-    poses = torch.Tensor(poses).to(device)
-    rays_rgb = torch.Tensor(rays_rgb).to(device)
+        """Validation Rays"""
+        cps = np.concatenate([poses[:, :3, :4], np.zeros_like(poses[:, :1, :])], axis=1)
+        cps[:, 3, 3] = 1.
+        
 
-    return images, poses, rays_rgb, near, far
+        print('K:', K)
+        print('Camera Pose: ', cps.shape)
 
+        """Setting Attributes"""
+        self.mode = mode
+        self.frame_num = cps.shape[0]
+        self.h, self.w, self.f = H, W, focal
+        self.hwf = hwf
+        self.K = K
+        self.cx, self.cy = W / 2., H / 2.
+        self.cps, self.intr, self.images = cps, K, images
+        self.cps_valid = view_synthesis(cps, valid_factor) 
+        self.rays_num = self.frame_num * self.h * self.w
+        self.near, self.far = near, far
+        self.rays_o, self.rays_d = None, None
+        self.pixel_alignment = pixel_alignment
+        self.no_ndc = no_ndc
+
+        self._gen_rays(mode)
+
+    def _gen_rays(self, mode):
+        if mode == 'train':
+            print('get rays of training')
+            if self.rays_o != None and self.rays_d != None:
+                del(self.rays_o);   del(self.rays_d)
+            self.rays_o, self.rays_d = np.zeros([self.cps.shape[0], self.h, self.w, 3]), np.zeros([self.cps.shape[0], self.h, self.w, 3])
+            for i in tqdm(range(self.cps.shape[0])):
+                tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps[i, :3, :4], self.pixel_alignment)
+                self.rays_o[i] = tmp_rays_o
+                self.rays_d[i] = tmp_rays_d
+        else:
+            print('get rays of validation')
+            if self.rays_o != None and self.rays_d != None:
+                del(self.rays_o);   del(self.rays_d)
+            self.rays_o, self.rays_d = np.zeros([self.cps_valid.shape[0], self.h, self.w, 3]), np.zeros([self.cps_valid.shape[0], self.h, self.w, 3])
+            for i in tqdm(range(self.cps_valid.shape[0])):
+                tmp_rays_o, tmp_rays_d = get_rays_np(self.h, self.w, self.K, self.cps_valid[i, :3, :4], self.pixel_alignment)
+                self.rays_o[i] = tmp_rays_o
+                self.rays_d[i] = tmp_rays_d
+        if not self.no_ndc:
+            self.rays_o, self.rays_d = ndc_rays_np(self.h, self.w, self.K[0][0], 1., self.rays_o, self.rays_d)
+
+
+    def _my_get_item(self, idx):
+        frame_id = idx // (self.h * self.w)
+        pixel_id = idx % (self.h * self.w)
+        hid, wid = pixel_id // self.w, pixel_id % self.w
+        rgb = self.images[frame_id, hid, wid]
+        ray_o = self.rays_o[frame_id, hid, wid]
+        ray_d = self.rays_d[frame_id, hid, wid]
+        if self.mode == 'train':
+            return {'rgb_gt': rgb, 'rays_o': ray_o, 'rays_d': ray_d}
+        else:
+            return {'rays_o': ray_o, 'rays_d': ray_d}
+
+
+    def set_mode(self, mode='train'):
+        modes = ['train', 'valid']
+        if mode not in modes:
+            print('Unknown mode: ', mode, ' Only supports: ', modes)
+            exit(-1)
+        if mode != self.mode:
+            self._gen_rays(mode)
+
+        self.mode = mode
+
+    def __getitem__(self, item):
+        return self._my_get_item(item)
+
+    def __len__(self):
+        if self.mode == 'train':
+            return self.frame_num * self.w * self.h
+        else:
+            return self.cps_valid.shape[0] * self.w * self.h
 
 
 class StyleRaySampler(Dataset):

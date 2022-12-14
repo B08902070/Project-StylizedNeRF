@@ -17,7 +17,7 @@ def config_parser():
     parser.add_argument("--vgg_pth_path", type=str, default='./pretrained/vgg_normalised.pth')
     parser.add_argument("--vae_pth_path", type=str, default='./pretrained/vae.pth')
     parser.add_argument("--dataset_type", type=str, default='llff')
-    parser.add_argument("--factor", type=float, default=1.,
+    parser.add_argument("--factor", type=int, default=1,
                         help='factor to downsample images')
     parser.add_argument("--gen_factor", type=float, default=0.2,  # 5,
                         help='factor for interpolate trace when style training')

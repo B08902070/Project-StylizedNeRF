@@ -4,7 +4,7 @@ datadir = ./data/fern
 styledir = ./small_style/
 dataset_type = llff
 
-factor = 4
+factor = 8
 
 nerf_type = style_nerf
 nerf_type_fine = style_nerf
