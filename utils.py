@@ -261,7 +261,7 @@ def pts2imgcoor(pts, intr):
 
 img2mse = lambda x, y: torch.mean((x - y) ** 2)
 img2l1 = lambda x, y: (x - y).abs().mean()
-mse2psnr = lambda x: -10. * torch.log(x) / torch.log(torch.array([10.]))
+mse2psnr = lambda x: -10. * torch.log(x) / torch.log(torch.Tensor([10.]))
 to8b = lambda x: np.array(x, dtype=np.uint8)
 
 
