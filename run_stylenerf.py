@@ -93,6 +93,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                 loss = loss + loss_rgb_fine
 
             # Backward and Optimize
+            nerf_optimizer.zero_grad()
             loss.backward()
             nerf_optimizer.step()
 
