@@ -136,7 +136,7 @@ def sampling_pts_fine(rays_o, rays_d, ts, weights, N_samples_fine=64):
     ts_mid = 0.5 * (ts[..., 1:] + ts[..., :-1])
     t_samples = sample_pdf(ts_mid, weights[..., 1:-1], N_samples_fine, det=True)
     t_samples = t_samples.detach()
-    _, t_vals = torch.argsort(torch.cat([ts, t_samples], -1), -1)
+    t_vals, _ = torch.sort(torch.cat([ts, t_samples], -1), -1)
     pts = rays_o.unsqueeze(-2) + rays_d.unsqueeze(-2) * t_vals.unsqueeze(-1)  # [N_rays, N_samples + N_importance, 3]
 
     # Avoid BP
