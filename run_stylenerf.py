@@ -69,10 +69,9 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
             rgb_gt, rays_o, rays_d = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d']
 
             pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=train_dataset.near, far=train_dataset.far, perturb=True)
-            pts.to(device)
+            pts = pts.to(device)
             ray_num, pts_num = rays_o.shape[0], args.N_samples
-            rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
-            rays_d_forward.to(device)
+            rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3]).to(device)
             # Forward and Composition
             forward_t = time.time()
             ret = nerf_forward(pts=pts, dirs=rays_d_forward)
