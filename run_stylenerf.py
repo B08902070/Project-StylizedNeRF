@@ -417,11 +417,11 @@ def train(args):
     shutil.copy(args.config, sv_path)
 
     """Create Nerf"""
-    nerf = Style_NeRF(args, mode='coarse', device=device).to(device)
+    nerf = Style_NeRF(args, mode='coarse').to(device)
     nerf.train()
     grad_vars = list(nerf.parameters())  
     if args.N_samples_fine > 0:
-        nerf_fine = Style_NeRF(args=args, mode='fine', device=device).to(device)
+        nerf_fine = Style_NeRF(args=args, mode='fine').to(device)
         nerf_fine.train()
         grad_vars += list(nerf_fine.parameters())
     nerf_optimizer = torch.optim.Adam(params=grad_vars, lr=args.lr, betas=(0.9, 0.999))

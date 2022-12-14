@@ -37,6 +37,7 @@ class Style_NeRF(nn.Module):
 
 
     def forward(self, pts, dirs):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         emb_pts = self.embedder_coor.embed(pts).to(device)
         emb_dirs = self.embedder_dir.embed(dirs).to(device)
 
