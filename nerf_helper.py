@@ -169,7 +169,7 @@ def sample_pdf(bins, weights, N_samples, det=False):
     cdf_g = torch.gather(cdf.unsqueeze(1).expand(matched_shape), 2, inds_g)
     bins_g = torch.gather(bins.unsqueeze(1).expand(matched_shape), 2, inds_g)
 
-    denom = (cdf_g[..., 1]-cdf_g[..., 0])
+    denom = (cdf_g[..., 1]-cdf_g[..., 0]).cpu()
     cond = np.where(denom < 1e-5)
     denom[cond[0], cond[1]] = 1.
     t = (u-cdf_g[..., 0]) / denom
