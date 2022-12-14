@@ -63,7 +63,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
     data_time, model_time, opt_time = 0, 0, 0
     fine_time = 0
     while True:
-        for batch_idx, batch_data in tqdm(train_dataloader):
+        for batch_data in tqdm(train_dataloader):
             # Get batch data
             start_t = time.time()
             rgb_gt, rays_o, rays_d = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d']
