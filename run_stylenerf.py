@@ -93,7 +93,8 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                 loss = loss + loss_rgb_fine
 
             # Backward and Optimize
-            nerf_optimizer.step(loss)
+            loss.backward()
+            nerf_optimizer.step()
 
             if global_step % args.i_print == 0:
                 psnr = mse2psnr(loss_rgb)
