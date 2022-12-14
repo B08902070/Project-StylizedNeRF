@@ -96,7 +96,7 @@ class Style_NeRF_MLP(nn.Module):
             rgb = self.act_fn(self.rgb_layers[0](torch.cat((remap, viewdirs), dim=-1)))
         else:
             rgb = self.act_fn(self.rgb_layers[0](remap))
-        rgb = F.sigmoid(self.remap_layer[1](rgb))
+        rgb = F.sigmoid(self.rgb_layers[1](rgb))
 
         return { 'rgb': rgb,  'sigma': sigma.squeeze(-1)}
 
