@@ -131,6 +131,6 @@ class Learnable_Latents(nn.Module):
     def set_latents_optim(self):
         self.latents_optim = torch.optim.Adam([self.latents], lr=1e-3)
 
-    def optimize(self, loss):
-        self.latent_optim.step(loss)
+    def optimize(self):
+        self.latent_optim.step()
 

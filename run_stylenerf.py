@@ -205,7 +205,8 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     train_dataset.set_mode('train_style')
 
     """Dataloader Preparation"""   
-    train_dataloader = LightDataLoader(train_dataset, batch_size=args.batch_size_style, shuffle=True, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
+    train_dataloader = LightDataLoader(train_dataset, batch_size=args.batch_size_style, shuffle=True, \
+                                        num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
     rounds_per_epoch = int(train_dataloader.data_num / train_dataloader.batch_size)
     print('DataLoader Creation Done !')
                                   
@@ -327,7 +328,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             loss_rgb = args.rgb_loss_lambda * img2mse(rgb_exp_style, rgb_gt)
             # Latent LogP loss
             logp_loss_lambda = args.logp_loss_lambda * (args.logp_loss_decay ** int((global_step - args.origin_step) / 1000))
-            loss_logp = logp_loss_lambda * latents_model.minus_logp(style_ids=style_id, frame_ids=frame_id)
+            loss_logp = logp_loss_lambda * latents_model.loss(style_ids=style_id, frame_ids=frame_id)
 
             fine_t = time.time()
             if args.N_samples_fine > 0:
@@ -353,8 +354,10 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
             # Backward and Optimize
             opt_t = time.time()
-            style_optimizer.step(loss)
-            latents_model.optimize(loss)
+            style_optimizer.zero_grad()
+            loss.backward()
+            style_optimizer.step()
+            latents_model.optimize()
 
 
             # Time Measuring
