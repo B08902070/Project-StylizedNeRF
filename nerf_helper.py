@@ -39,7 +39,7 @@ class Embedder:
         for freq in self.freq_band:
             for fn in self.periodic_fns:
                 out.append(fn(x*freq))
-        out = torch.cat(out, -1)
+        out = torch.cat(out, -1).type(torch.FloatTensor)
         return out
       
 
