@@ -217,7 +217,7 @@ def alpha_composition(pts_rgb, pts_sigma, t_values, sigma_noise_std=0., white_bk
     sigma2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
 
     delta = t_values[..., 1:] - t_values[..., :-1]
-    delta = torch.cat([delta, torch.array([1e10]).expand(delta[..., :1].shape)], -1)  # [N_rays, N_samples]
+    delta = torch.cat([delta, torch.Tensor([1e10]).expand(delta[..., :1].shape)], -1)  # [N_rays, N_samples]
 
     noise = 0.
     if sigma_noise_std > 0:
