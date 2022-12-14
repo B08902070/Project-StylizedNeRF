@@ -69,9 +69,8 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
             rgb_gt, rays_o, rays_d = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d']
 
             pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=train_dataset.near, far=train_dataset.far, perturb=True)
-            pts = pts.to(device)
             ray_num, pts_num = rays_o.shape[0], args.N_samples
-            rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3]).to(device)
+            rays_d_forward = rays_d.unsqueeze(1).expand([ray_num, pts_num, 3])
             # Forward and Composition
             forward_t = time.time()
             ret = nerf_forward(pts=pts, dirs=rays_d_forward)
@@ -418,11 +417,11 @@ def train(args):
     shutil.copy(args.config, sv_path)
 
     """Create Nerf"""
-    nerf = Style_NeRF(args, mode='coarse').to(device)
+    nerf = Style_NeRF(args, mode='coarse', device=device).to(device)
     nerf.train()
     grad_vars = list(nerf.parameters())  
     if args.N_samples_fine > 0:
-        nerf_fine = Style_NeRF(args=args, mode='fine').to(device)
+        nerf_fine = Style_NeRF(args=args, mode='fine', device=device).to(device)
         nerf_fine.train()
         grad_vars += list(nerf_fine.parameters())
     nerf_optimizer = torch.optim.Adam(params=grad_vars, lr=args.lr, betas=(0.9, 0.999))

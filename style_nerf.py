@@ -10,7 +10,7 @@ act_dict = {'relu': nn.ReLU, 'sigmoid': nn.Sigmoid, 'elu': nn.ELU, 'tanh': nn.Ta
           
 
 class Style_NeRF(nn.Module):
-    def __init__(self, args, mode='coarse'):
+    def __init__(self, args, mode='coarse', device=None):
         super(Style_NeRF, self).__init__()
         self.use_viewdir = args.use_viewdir
         self.act_fn = act_dict[args.act_type]
@@ -22,7 +22,7 @@ class Style_NeRF(nn.Module):
         self.input_ch_viewdir = self.embedder_dir.output_dim
         self.skips=[4]
         self.sigma_mul=0
-
+        self.device = device
 
         # Neural Net
         if mode == 'coarse':
@@ -37,9 +37,8 @@ class Style_NeRF(nn.Module):
 
 
     def forward(self, pts, dirs):
-        print(type(pts))
-        emb_pts = self.embedder_coor.embed(pts)
-        emb_dirs = self.embedder_dir.embed(dirs)
+        emb_pts = self.embedder_coor.embed(pts).to(device)
+        emb_dirs = self.embedder_dir.embed(dirs).to(device)
 
         out = self.mlp(emb_pts, emb_dirs)
         out['dirs'] = dirs
