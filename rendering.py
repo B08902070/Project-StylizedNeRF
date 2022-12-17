@@ -63,6 +63,7 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
             sv_t = sv_t.reshape([img_num_gathered, h, w])
             sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
             for i in range(img_num_gathered):
+                print(to8b(sv_rgb[i]))
                 imageio.imwrite(sv_path + '/rgb_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
                 imageio.imwrite(sv_path + '/depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
                 np.savez(sv_path + '/geometry_%05d' % (i + img_id), coor_map=sv_coor_map[i], cps=cps[i + img_id], hwf=hwf, near=near, far=far)
