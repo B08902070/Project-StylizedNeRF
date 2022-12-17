@@ -17,10 +17,7 @@ from utils import save_makedir
 from learnable_latents import VAE
 from style_function import cal_mean_std
 from style_module_helper import *
-from style_nerf import Style_NeRF
-from rendering import cal_geometry
-from dataset import StyleRaySampler
-from nerf_helper import batchify, sampling_pts_fine, sampling_pts_uniform
+
 
 
 
@@ -175,49 +172,7 @@ def train_vae(args):
     writer.close()
 
 
-def gen_nerf_content(args):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    """set sampling functions"""
-    samp_func = sampling_pts_uniform
-    if args.N_samples_fine > 0:
-        samp_func_fine = sampling_pts_fine
-
-    """set nerf"""
-    nerf = Style_NeRF(args=args, mode='coarse')
-    nerf.eval()
-    nerf.to(device)
-    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
-    if args.N_samples_fine > 0:
-        nerf_fine = Style_NeRF(args=args, mode='fine')
-        nerf_fine.train()
-        nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
-
-    """load checkpoint of nerf"""
-    use_viewdir_str = '_UseViewDir_' if args.use_viewdir else ''
-    ckpts_path = os.path.join(args.basedir, args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
-    ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' not in f]
-    print('Found ckpts', ckpts, ' from ', ckpts_path)
-    if len(ckpts) > 0 and not args.no_reload:
-        ckpt_path = ckpts[-1]
-        print('Reloading Nerf Model from ', ckpt_path)
-        ckpt = torch.load(ckpt_path)
-        # Load nerf
-        nerf.load_state_dict(ckpt['nerf'])
-        if args.N_samples_fine > 0:
-            nerf_fine.load_state_dict((ckpt['nerf_fine']))
-
-    """Dataset Creation"""
-    tmp_dataset = StyleRaySampler(data_path=args.datadir, style_path=args.style_dir, factor=args.factor,
-                                  mode='valid', valid_factor=args.gen_factor, dataset_type=args.dataset_type,
-                                     no_ndc=args.no_ndc, pixel_alignment=args.pixel_alignment, spherify=args.spherify)
-
-                                     
-    tmp_dataloader = data.DataLoader(tmp_dataset, args.batch_size_style, shuffle=False, num_workers=args.num_workers,
-                                pin_memory=(args.num_workers > 0))
-    print("Preparing nerf data for style training ...")
-    cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
-                 sv_path=args.nerf_content_dir, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
 
 
 def ndc2world(coor_ndc, h, w, focal):
@@ -387,10 +342,6 @@ if __name__ == '__main__':
     parser.add_argument('--save_dir', default='./pretrained/',
                         help='Directory to save the model')
     parser.add_argument('--ckp_num', type=int, default=3)
-    parser.add_argument("--use_viewdir", action='store_true',
-                        help='use view direction as input.')
-    parser.add_argument("--act_type", type=str, default='relu',
-                        help='Types of activation: [relu, tanh, elu]')
     parser.add_argument('--log_dir', default='./logs/stylenet/',
                         help='Directory to save the log')
     parser.add_argument('--lr', type=float, default=1e-4)
@@ -410,25 +361,6 @@ if __name__ == '__main__':
     parser.add_argument('--vae_latent', type=int, default=32)
     parser.add_argument('--vae_kl_lambda', type=float, default=0.1)
 
-    # train decoder nerf options
-    parser.add_argument("--factor", type=float, default=1.,
-                        help='factor to downsample images')
-    parser.add_argument("--gen_factor", type=float, default=0.2,  # 5,
-                        help='factor for interpolate trace when style training')
-    parser.add_argument("--dataset_type", type=str, default='llff')
-    parser.add_argument("--embed_freq_coor", type=int, default=10,
-                        help='frequency of coordinate embedding')
-    parser.add_argument("--embed_freq_dir", type=int, default=4,
-                        help='frequency of direction embedding')
-    parser.add_argument("--pixel_alignment", action='store_true',
-                        help='Pixel Alignment with half a pixel.')
-    parser.add_argument("--spherify", action='store_true', help='Spherify camera poses or not')
-    parser.add_argument("--num_workers", type=int, default=0, help='Number of workers for torch dataloader.')
-    parser.add_argument("--N_samples", type=int, default=64,
-                        help='The number of sampling points per ray')
-    parser.add_argument("--N_samples_fine", type=int, default=64,
-                        help='The number of sampling points per ray for fine network')
-
     args = parser.parse_args()
 
     if args.task == 'pretrain_decoder':
@@ -436,7 +368,6 @@ if __name__ == '__main__':
     elif args.task == 'vae':
         train_vae(args)
     elif args.task == 'decoder_with_nerf':
-        gen_nerf_content(args)
         train_decoder_with_nerf(args)
     else:
         print('Unknown task, only support tasks: [pretrain_decoder, vae, decoder_with_nerf]')

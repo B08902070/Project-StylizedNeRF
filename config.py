@@ -12,7 +12,7 @@ def config_parser():
 
     # data set options
     parser.add_argument("--datadir", type=str, help='input data directory')
-    parser.add_argument("--styledir", type=str, default='./style/')
+    parser.add_argument("--styledir", type=str, default='./all_styles/')
     parser.add_argument("--decoder_pth_path", type=str, default='./pretrained/decoder.pth')
     parser.add_argument("--vgg_pth_path", type=str, default='./pretrained/vgg_normalised.pth')
     parser.add_argument("--vae_pth_path", type=str, default='./pretrained/vae.pth')

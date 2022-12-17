@@ -8,7 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from torch.autograd import Variable 
-from dataset import RaySampler, StyleRaySampler_gen, LightDataLoader
+from dataset import RaySampler, StyleRaySampler, StyleRaySampler_gen, LightDataLoader
 from learnable_latents import VAE, Learnable_Latents
 from style_nerf import Style_NeRF, Style_Module
 from config import config_parser
@@ -405,6 +405,24 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             if global_step > args.total_step:
                 return global_step
 
+def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine):
+    """set nerf"""
+    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
+    if args.N_samples_fine > 0:
+        nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
+
+    """Dataset Creation"""
+    tmp_dataset = StyleRaySampler(data_path=args.datadir, style_path=args.styledir, factor=args.factor,
+                                  mode='valid', valid_factor=args.gen_factor, dataset_type=args.dataset_type,
+                                     no_ndc=args.no_ndc, pixel_alignment=args.pixel_alignment, spherify=args.spherify)
+
+                                     
+    tmp_dataloader = DataLoader(tmp_dataset, args.batch_size_style, shuffle=False, num_workers=args.num_workers,
+                                pin_memory=(args.num_workers > 0))
+    print("Preparing nerf data for style training ...")
+    cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
+                 sv_path=args.nerf_content_dir, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
+
  
 
 def train(args):
@@ -422,7 +440,8 @@ def train(args):
     """Create Nerf"""
     nerf = Style_NeRF(args, mode='coarse').to(device)
     nerf.train()
-    grad_vars = list(nerf.parameters())  
+    grad_vars = list(nerf.parameters())
+    nerf_fine=None
     if args.N_samples_fine > 0:
         nerf_fine = Style_NeRF(args=args, mode='fine').to(device)
         nerf_fine.train()
@@ -452,6 +471,9 @@ def train(args):
         global_step = pretrain_nerf(args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine, 
                       nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpts_path=ckpts_path, sv_path=sv_path)
 
+    """For generate nerf images"""
+    if args.gen_nerf_images:
+        gen_nerf_images(args=args, nerf=nerf, nerf_fine=nerf_fine)
 
     """For train stylenerf"""
     if args.train_style_nerf or args.render_train_style or args.render_valid_style:
