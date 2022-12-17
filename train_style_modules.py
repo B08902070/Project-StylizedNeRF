@@ -195,7 +195,7 @@ def train_decoder_with_nerf(args):
 
     network = NST_Net(encoder_pretrained_path= args.vgg_pretrained_path)
     decoder_dir = save_dir / 'decoder/'
-    ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
+    ckpts = [os.path.join(decoder_dir, f) for f in sorted(os.listdir(decoder_dir)) if 'decoder_iter_' in f]
     if len(ckpts) > 0 and not args.no_reload:
         ld_dict = torch.load(ckpts[-1])
         network.load_decoder_state_dict(ld_dict['decoder'])
