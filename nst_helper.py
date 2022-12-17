@@ -23,12 +23,12 @@ def adaIN(feat_content, feat_style):
 
     return feat_stylized
 
-def content_loss(feat_input, feat_target):
+def cal_content_loss(feat_input, feat_target):
     assert (feat_input.size() == feat_target.size())
     mse_loss = nn.MSELoss()
     return mse_loss(feat_input, feat_target)
 
-def style_loss(feats_input, feats_target):
+def cal_style_loss(feats_input, feats_target):
     assert (len(feats_input) == len(feats_target))
     loss = 0.0
     mse_loss = nn.MSELoss()
