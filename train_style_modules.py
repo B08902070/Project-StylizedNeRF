@@ -236,7 +236,7 @@ def train_decoder_with_nerf(args):
     # Sampling Patch
     patch_size = 512
     if patch_size > 0:
-        patch_h_min, patch_w_min = np.random.randint(0, h-patch_size), np.random.randint(0, w-patch_size)
+        patch_h_min, patch_w_min = np.random.randint(0, max(0, h-patch_size)), np.random.randint(0, max(0, w-patch_size))
         patch_h_max, patch_w_max = patch_h_min + patch_size, patch_w_min + patch_size
     else:
         patch_h_min, patch_w_min = 0, 0
