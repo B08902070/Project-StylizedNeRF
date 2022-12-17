@@ -262,7 +262,7 @@ def pts2imgcoor(pts, intr):
 img2mse = lambda x, y: torch.mean((x - y) ** 2)
 img2l1 = lambda x, y: (x - y).abs().mean()
 mse2psnr = lambda x: -10. * torch.log(x) / torch.log(torch.Tensor([10.]))
-to8b = lambda x : (255*np.clip(x,0,1)).astype(np.uint8)
+to8b = lambda x : (np.clip(x,0,1)).astype(np.uint8)
 
 
 def empty_loss(ts, sigma, t_gt):

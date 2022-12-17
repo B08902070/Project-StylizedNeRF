@@ -32,7 +32,7 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
         pts_rgb, pts_sigma = ret['rgb'], ret['sigma']
         rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, 0)
         # Gather outputs
-        if not args.N_samples > 0:
+        if not args.N_samples_fine > 0:
             rgb_exp_tmp, t_exp_tmp = rgb_exp.detach().cpu().numpy(), t_exp.detach().cpu().numpy()
             coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.cpu().numpy() + rays_o.cpu().numpy()
         else:

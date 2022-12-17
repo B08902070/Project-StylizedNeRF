@@ -423,6 +423,8 @@ def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine, nerf_gen_d
     cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
                  sv_path=nerf_gen_data_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
 
+    return
+
  
 
 def run(args):

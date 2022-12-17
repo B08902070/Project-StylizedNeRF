@@ -3,6 +3,7 @@ torchvision
 opencv-python
 opencv-contrib-python
 imageio
+imageio-ffmpeg
 pyrender
 tqdm
 matplotlib
