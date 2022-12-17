@@ -206,9 +206,10 @@ def train_decoder_with_nerf(args):
     network.train()
     network.to(device)
 
+    content_tf = train_transform2()
     style_tf = train_transform2()
     nerf_content_dir = os.path.join('./logs', args.expname + '_' + 'style_nerf_' + 'relu_' + 'UseViewDir_' + 'ImgFactor8', 'nerf_gen_data2/')
-    content_dataset = CoorImageDataset(nerf_content_dir)
+    content_dataset = CoorImageDataset(nerf_content_dir, content_tf)
     style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 
     # Camera for Rendering
@@ -260,8 +261,6 @@ def train_decoder_with_nerf(args):
         # The same style image
         style_images = next(style_iter).to(device)
         style_images = style_images[0].expand([args.batch_size, * style_images.shape[1:]])
-        print('content_imgs:', content_images.size())
-        print('style_images: ', style_images.size())
         loss_c, loss_s, stylized_img, _ = network(content_images, style_images, return_img_and_feat=True)
         stylized_img = resample_layer(stylized_img)
 

@@ -60,7 +60,7 @@ class FlatFolderDataset(data.Dataset):
 
 
 class CoorImageDataset(data.Dataset):
-    def __init__(self, root):
+    def __init__(self, root, transform):
         super(CoorImageDataset, self).__init__()
         self.root = root
         self.image_paths = sorted(list(Path(self.root).glob('rgb_*.png')))
@@ -69,7 +69,7 @@ class CoorImageDataset(data.Dataset):
         self.hwf = data['hwf']
         # self.near, self.far = data['near'], data['far']
         self.near, self.far = 0., 1.
-        self.transform = default_transform()
+        self.transform = transform
 
     def __getitem__(self, index):
         image_path, geo_path = self.image_paths[index], self.geo_paths[index]
