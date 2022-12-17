@@ -25,7 +25,7 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
     for batch_idx, batch_data in tqdm(dataloader):
         # To Device as Tensor
         for key in batch_data:
-            batch_data[key] = torch.array(batch_data[key].numpy())
+            batch_data[key] = torch.Tensor(batch_data[key].numpy())
 
         # Get data and forward
         rays_o, rays_d = batch_data['rays_o'], batch_data['rays_d']
