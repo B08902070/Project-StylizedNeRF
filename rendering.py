@@ -46,7 +46,6 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
             rgb_exp_tmp, t_exp_tmp = rgb_exp_fine.detach().cpu().numpy(), t_exp_fine.detach().cpu().numpy()
             coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.cpu().numpy() + rays_o.cpu().numpy()
 
-        print(rgb_exp_tmp.shape)
         batch_size = coor_tmp.shape[0]
         rgb_map[pixel_id: pixel_id+batch_size] = rgb_exp_tmp
         t_map[pixel_id: pixel_id+batch_size] = t_exp_tmp
@@ -63,6 +62,7 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
             sv_t = sv_t.reshape([img_num_gathered, h, w])
             sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
             for i in range(img_num_gathered):
+                print(sv_rgb[i])
                 print(to8b(sv_rgb[i]))
                 imageio.imwrite(sv_path + '/rgb_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
                 imageio.imwrite(sv_path + '/depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
