@@ -49,7 +49,7 @@ class NST_Net(nn.Module):
         style_loss = SF.style_loss(feats_style, feats_stylized_img)
 
         if return_img_and_feat:
-            return content_loss, style_loss, style_img, feat_stylized
+            return content_loss, style_loss, stylized_img, feat_stylized
         else:
             return content_loss, style_loss
 
