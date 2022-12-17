@@ -194,6 +194,7 @@ def train_decoder_with_nerf(args):
     writer = SummaryWriter(log_dir=str(log_dir))
 
     network = NST_Net(encoder_pretrained_path= args.vgg_pretrained_path)
+    decoder_dir = save_dir / 'decoder/'
     ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
     if len(ckpts) > 0 and not args.no_reload:
         ld_dict = torch.load(ckpts[-1])
