@@ -425,7 +425,7 @@ def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine):
 
  
 
-def train(args):
+def run(args):
     """set sampling functions"""
     samp_func = sampling_pts_uniform
     if args.N_samples_fine > 0:
@@ -489,4 +489,4 @@ if __name__ == '__main__':
     args = config_parser()
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     
-    train(args=args)
+    run(args=args)
