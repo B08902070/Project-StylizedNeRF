@@ -387,6 +387,8 @@ if __name__ == '__main__':
     parser.add_argument('--save_dir', default='./pretrained/',
                         help='Directory to save the model')
     parser.add_argument('--ckp_num', type=int, default=3)
+    parser.add_argument("--use_viewdir", action='store_true',
+                        help='use view direction as input.')
     parser.add_argument('--log_dir', default='./logs/stylenet/',
                         help='Directory to save the log')
     parser.add_argument('--lr', type=float, default=1e-4)
