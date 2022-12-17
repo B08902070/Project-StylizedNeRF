@@ -259,15 +259,16 @@ def train_decoder_with_nerf(args):
 
         # The same style image
         style_images = next(style_iter).to(device)
-        style_images = style_images[:1].expand([args.batch_size, * style_images.shape[1:]])
-
-        loss_c, loss_s, stylized_content = network(content_images, style_images, return_img_and_feat=True)
-        stylized_content = resample_layer(stylized_content)
+        style_images = style_images[0].expand([args.batch_size, * style_images.shape[1:]])
+        print('content_imgs:', content_images.size())
+        print('style_images: ', style_images.size())
+        loss_c, loss_s, stylized_img, _ = network(content_images, style_images, return_img_and_feat=True)
+        stylized_img = resample_layer(stylized_img)
 
         # Set camera pose
         camera.set(cameraPose=cps)
         pcl_coor_world0 = coor_maps[0].reshape([-1, 3])
-        pcl_rgb0 = torch.movedim(stylized_content[0], 0, -1).reshape([-1, 3])
+        pcl_rgb0 = torch.movedim(stylized_img[0], 0, -1).reshape([-1, 3])
 
         warped_stylized_content0, warped_coor_map0, warped_msks = camera.rasterize(pcl_coor_world0, pcl_rgb0, h=h, w=w)
         warped_stylized_content0, warped_coor_map0, warped_msks = warped_stylized_content0[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max],\
