@@ -23,10 +23,6 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
     rgb_map, t_map = np.zeros([frame_num*h*w, 3], dtype=np.float32), np.zeros([frame_num*h*w], dtype=np.float32)
     coor_map = np.zeros([frame_num*h*w, 3], dtype=np.float32)
     for batch_idx, batch_data in enumerate(tqdm(dataloader)):
-        # To Device as Tensor
-        for key in batch_data:
-            batch_data[key] = torch.Tensor(batch_data[key].cpu().numpy())
-
         # Get data and forward
         rays_o, rays_d = batch_data['rays_o'], batch_data['rays_d']
         pts, ts = samp_func(rays_o=rays_o, rays_d=rays_d, N_samples=args.N_samples, near=dataset.near, far=dataset.far)
@@ -37,8 +33,8 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
         rgb_exp, t_exp, weights = alpha_composition(pts_rgb, pts_sigma, ts, 0)
         # Gather outputs
         if not args.N_samples > 0:
-            rgb_exp_tmp, t_exp_tmp = rgb_exp.detach().numpy(), t_exp.detach().numpy()
-            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.numpy() + rays_o.numpy()
+            rgb_exp_tmp, t_exp_tmp = rgb_exp.detach().cpu().numpy(), t_exp.detach().cpu().numpy()
+            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.cpu().numpy() + rays_o.cpu().numpy()
         else:
             pts_fine, ts_fine = samp_func_fine(rays_o, rays_d, ts, weights, args.N_samples_fine)
             pts_num = args.N_samples + args.N_samples_fine
@@ -47,8 +43,8 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
             pts_rgb_fine, pts_sigma_fine = ret['rgb'], ret['sigma']
             rgb_exp_fine, t_exp_fine, _ = alpha_composition(pts_rgb_fine, pts_sigma_fine, ts_fine, 0)
             # Gather outputs
-            rgb_exp_tmp, t_exp_tmp = rgb_exp_fine.detach().numpy(), t_exp_fine.detach().numpy()
-            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.numpy() + rays_o.numpy()
+            rgb_exp_tmp, t_exp_tmp = rgb_exp_fine.detach().cpu().numpy(), t_exp_fine.detach().cpu().numpy()
+            coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.cpu().numpy() + rays_o.cpu().numpy()
 
         batch_size = coor_tmp.shape[0]
         rgb_map[pixel_id: pixel_id+batch_size] = rgb_exp_tmp
