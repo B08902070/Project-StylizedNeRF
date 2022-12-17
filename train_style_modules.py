@@ -416,6 +416,10 @@ if __name__ == '__main__':
     parser.add_argument("--gen_factor", type=float, default=0.2,  # 5,
                         help='factor for interpolate trace when style training')
     parser.add_argument("--dataset_type", type=str, default='llff')
+    parser.add_argument("--embed_freq_coor", type=int, default=10,
+                        help='frequency of coordinate embedding')
+    parser.add_argument("--embed_freq_dir", type=int, default=4,
+                        help='frequency of direction embedding')
     parser.add_argument("--pixel_alignment", action='store_true',
                         help='Pixel Alignment with half a pixel.')
     parser.add_argument("--spherify", action='store_true', help='Spherify camera poses or not')
