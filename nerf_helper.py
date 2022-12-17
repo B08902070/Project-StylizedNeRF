@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 # positional Encoding
 class Embedder:
@@ -88,15 +87,15 @@ class Style_NeRF_MLP(nn.Module):
             
 
         sigma = self.sigma_layer(base)
-        sigma = sigma + F.relu(sigma) * self.sigma_mul
+        sigma = sigma + torch.relu(sigma) * self.sigma_mul
 
         # for rgb
-        remap = F.relu(self.remap_layer(base))
+        remap = torch.relu(self.remap_layer(base))
         if self.use_viewdir:
             rgb = self.act_fn(self.rgb_layers[0](torch.cat((remap, viewdirs), dim=-1)))
         else:
             rgb = self.act_fn(self.rgb_layers[0](remap))
-        rgb = F.sigmoid(self.rgb_layers[1](rgb))
+        rgb = torch.sigmoid(self.rgb_layers[1](rgb))
 
         return { 'rgb': rgb,  'sigma': sigma.squeeze(-1)}
 

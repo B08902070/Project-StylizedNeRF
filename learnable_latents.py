@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 
 class VAE_encoder(nn.Module):
@@ -23,7 +22,7 @@ class VAE_encoder(nn.Module):
 
     def forward(self, x):
         for layer in self.fc_layers:
-            x = F.relu(layer(x))
+            x = torch.relu(layer(x))
         mu = self.mu_layer(x)
         sigma = self.sigma_layer(x)
 
