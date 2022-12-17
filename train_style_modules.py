@@ -207,7 +207,7 @@ def train_decoder_with_nerf(args):
     network.to(device)
 
     style_tf = train_transform2()
-    nerf_content_dir = os.path.join('./logs', args.expname + '_' + 'style_nerf' + '_' + 'relu' + 'UseViewDir' + 'ImgFactor8', 'nerf_gen_data2')
+    nerf_content_dir = os.path.join('./logs', args.expname + '_' + 'style_nerf' + '_' + 'relu' + 'UseViewDir' + 'ImgFactor8', 'nerf_gen_data2/')
     content_dataset = CoorImageDataset(nerf_content_dir)
     style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 
