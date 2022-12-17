@@ -207,8 +207,7 @@ def train_decoder_with_nerf(args):
     network.to(device)
 
     style_tf = train_transform2()
-    use_viewdir_str = 'UseViewDir' if args.use_view_dir else ''
-    nerf_content_dir = os.path.join(args.basedir, args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
+    nerf_content_dir = os.path.join('./logs', args.expname + '_' + 'style_nerf' + '_' + 'relu' + 'UseViewDir' + 'ImgFactor8')
     content_dataset = CoorImageDataset(nerf_content_dir)
     style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 
@@ -324,10 +323,10 @@ def train_decoder_with_nerf(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', is_config_file=True,
-                        help='config file path')
     parser.add_argument('--task', type=str, default='vae',
                         help='vae or pretrain_decoder or decoder_with_nerf')
+    parser.add_argument("--expname", type=str,
+                        help='experiment name')
     # Basic options
     parser.add_argument("--datadir", type=str, default='./data/fern', help='input data directory')
     parser.add_argument('--content_dir', type=str, default='./all_contents/',
@@ -359,6 +358,9 @@ if __name__ == '__main__':
     parser.add_argument('--print_interval', type=int, default=50)
     parser.add_argument("--act_type", type=str, default='relu',
                         help='Types of activation: [relu, tanh, elu]')
+    parser.add_argument("--factor", type=int, default=1,
+                        help='factor to downsample images')
+    
 
     # train vae options
     parser.add_argument('--vae_d', type=int, default=4)
