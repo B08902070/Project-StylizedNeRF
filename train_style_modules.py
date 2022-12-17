@@ -14,7 +14,7 @@ from tensorboardX import SummaryWriter
 
 from camera import Camera
 from learnable_latents import VAE
-from style_function import cal_mean_std
+from nst_helper import cal_mean_std
 from style_module_helper import *
 
 
