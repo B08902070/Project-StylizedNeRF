@@ -46,6 +46,7 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
             rgb_exp_tmp, t_exp_tmp = rgb_exp_fine.detach().cpu().numpy(), t_exp_fine.detach().cpu().numpy()
             coor_tmp = t_exp_tmp[..., np.newaxis] * rays_d.cpu().numpy() + rays_o.cpu().numpy()
 
+        print(rgb_exp_tmp)
         batch_size = coor_tmp.shape[0]
         rgb_map[pixel_id: pixel_id+batch_size] = rgb_exp_tmp
         t_map[pixel_id: pixel_id+batch_size] = t_exp_tmp
