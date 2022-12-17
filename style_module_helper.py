@@ -63,7 +63,6 @@ class CoorImageDataset(data.Dataset):
     def __init__(self, root):
         super(CoorImageDataset, self).__init__()
         self.root = root
-        print(f'root = {root}')
         self.image_paths = sorted(list(Path(self.root).glob('rgb_*.png')))
         self.geo_paths = sorted(list(Path(self.root).glob('geometry_*.npz')))
         data = np.load(str(self.geo_paths[0]))
