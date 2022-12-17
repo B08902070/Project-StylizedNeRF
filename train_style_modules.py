@@ -389,6 +389,8 @@ if __name__ == '__main__':
     parser.add_argument('--ckp_num', type=int, default=3)
     parser.add_argument("--use_viewdir", action='store_true',
                         help='use view direction as input.')
+    parser.add_argument("--act_type", type=str, default='relu',
+                        help='Types of activation: [relu, tanh, elu]')
     parser.add_argument('--log_dir', default='./logs/stylenet/',
                         help='Directory to save the log')
     parser.add_argument('--lr', type=float, default=1e-4)
