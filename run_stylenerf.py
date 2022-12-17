@@ -474,7 +474,7 @@ def run(args):
 
     """For generate nerf images"""
     if args.gen_nerf_images:
-        gen_nerf_images(args=args, nerf=nerf, nerf_fine=nerf_fine)
+        gen_nerf_images(args=args, samp_func = samp_func, samp_func_fine=samp_func_fine, nerf=nerf, nerf_fine=nerf_fine)
 
     """For train stylenerf"""
     if args.train_style_nerf or args.render_train_style or args.render_valid_style:
