@@ -261,7 +261,7 @@ def train_decoder_with_nerf(args):
         style_images = next(style_iter).to(device)
         style_images = style_images[:1].expand([args.batch_size, * style_images.shape[1:]])
 
-        loss_c, loss_s, stylized_content = network(content_images, style_images, return_stylized_content=True)
+        loss_c, loss_s, stylized_content = network(content_images, style_images, return_img_and_feat=True)
         stylized_content = resample_layer(stylized_content)
 
         # Set camera pose
