@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from nerf_helper import Embedder, Style_NeRF_MLP
 
@@ -69,10 +68,10 @@ class Style_Module(nn.Module):
             h = torch.cat((h, l), dim=-1)
             if i in self.skips:
                 h = torch.cat((h, x), dim=-1)
-            h = F.relu(self.layers[i](h))
+            h = torch.relu(self.layers[i](h))
         h = torch.cat((h, l), dim=-1)
         h = self.layers[-1](h)
-        h = F.sigmoid(h)
+        h = torch.sigmoid(h)
         out = {'rgb': h}
         return out
     
