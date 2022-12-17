@@ -13,7 +13,6 @@ from torchvision import transforms
 from tensorboardX import SummaryWriter
 
 from camera import Camera
-from utils import save_makedir
 from learnable_latents import VAE
 from style_function import cal_mean_std
 from style_module_helper import *

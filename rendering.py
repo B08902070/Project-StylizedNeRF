@@ -128,7 +128,7 @@ def render(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward
             sv_t = np.array(t_map[img_id * resolution: (img_id + img_num_gathered) * resolution], np.float32).reshape([img_num_gathered, -1])
             sv_t = (sv_t - np.min(sv_t, axis=1, keepdims=True)) / (np.max(sv_t, axis=1, keepdims=True) - np.min(sv_t, axis=1, keepdims=True) + 1e-7)
             sv_t = sv_t.reshape([img_num_gathered, h, w])
-            sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
+            #sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
             for i in range(img_num_gathered):
                 imageio.imwrite(sv_path + '/coarse_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
                 imageio.imwrite(sv_path + '/coarse_depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
@@ -229,8 +229,8 @@ def render_train(nerf_forward, samp_func, dataset, args, device, sv_path=None, n
             pred_t = (pred_t - np.min(pred_t)) / (np.max(pred_t) - np.min(pred_t))
 
             # To 255
-            pred_rgb, pred_t = np.array(pred_rgb * 255, np.int32), np.array(pred_t * 255, np.int32)
-            gt_rgb = np.array(gt_rgb * 255, np.int32)
+            #pred_rgb, pred_t = np.array(pred_rgb * 255, np.int32), np.array(pred_t * 255, np.int32)
+            #gt_rgb = np.array(gt_rgb * 255, np.int32)
 
             # Saving images
             imageio.imwrite(sv_path + '/coarse_%05d.png' % img_count, to8b(pred_rgb))
@@ -449,8 +449,8 @@ def render_train_style(samp_func, nerf_forward, style_forward, latents_model, da
                 pred_t = (pred_t - np.min(pred_t)) / (np.max(pred_t) - np.min(pred_t))
 
                 # To 255
-                pred_rgb, pred_t = np.array(pred_rgb * 255, np.int32), np.array(pred_t * 255, np.int32)
-                gt_rgb = np.array(gt_rgb * 255, np.int32)
+                #pred_rgb, pred_t = np.array(pred_rgb * 255, np.int32), np.array(pred_t * 255, np.int32)
+                #gt_rgb = np.array(gt_rgb * 255, np.int32)
 
                 # Saving images
                 style_id = img_count // frame_num
