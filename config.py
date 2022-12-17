@@ -146,6 +146,8 @@ def config_parser():
 
     # pretrain nerf
     parser.add_argument("--pretrain_nerf", action="store_true", help="pretrain nerf")
+    # train_style_nerf
+    parser.add_argument("--train_style_nerf", action="store_true", help="train style nerf")
     # gen nerf images
     parser.add_argument("--gen_nerf_images", action="store_true", help="generate images using origin nerf")
 
