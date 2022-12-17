@@ -405,7 +405,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             if global_step > args.total_step:
                 return global_step
 
-def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine):
+def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine, nerf_gen_data_path):
     """set nerf"""
     nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
     if args.N_samples_fine > 0:
@@ -421,7 +421,7 @@ def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine):
                                 pin_memory=(args.num_workers > 0))
     print("Preparing nerf data for style training ...")
     cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
-                 sv_path=args.nerf_content_dir, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
+                 sv_path=nerf_gen_data_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
 
  
 
@@ -471,13 +471,14 @@ def run(args):
         global_step = pretrain_nerf(args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine, 
                       nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpts_path=ckpts_path, sv_path=sv_path)
 
+    nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
     """For generate nerf images"""
     if args.gen_nerf_images:
-        gen_nerf_images(args=args, samp_func = samp_func, samp_func_fine=samp_func_fine, nerf=nerf, nerf_fine=nerf_fine)
+        gen_nerf_images(args=args, samp_func = samp_func, samp_func_fine=samp_func_fine, nerf=nerf, nerf_fine=nerf_fine,
+                         nerf_gen_data_path=nerf_gen_data_path)
 
     """For train stylenerf"""
     if args.train_style_nerf or args.render_train_style or args.render_valid_style:
-        nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
         check_nst_preprocess(nerf_gen_data_path, sv_path)
         global_step = train_style_nerf(args=args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine,
                          nerf=nerf, nerf_fine=nerf_fine, ckpts_path=ckpt_path, sv_path=sv_path, nerf_gen_data_path=nerf_gen_data_path)
