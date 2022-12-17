@@ -22,7 +22,7 @@ def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_f
     img_id, pixel_id = 0, 0
     rgb_map, t_map = np.zeros([frame_num*h*w, 3], dtype=np.float32), np.zeros([frame_num*h*w], dtype=np.float32)
     coor_map = np.zeros([frame_num*h*w, 3], dtype=np.float32)
-    for batch_idx, batch_data in enumerate(tqdm(dataloader)):
+    for batch_idx, batch_data in tqdm(dataloader):
         # To Device as Tensor
         for key in batch_data:
             batch_data[key] = torch.array(batch_data[key].numpy())
