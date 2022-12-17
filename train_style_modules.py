@@ -261,6 +261,7 @@ def train_decoder_with_nerf(args):
         # The same style image
         style_images = next(style_iter).to(device)
         style_images = style_images[0].expand([args.batch_size, * style_images.shape[1:]])
+        print(content_images.size(), style_images.size())
         loss_c, loss_s, stylized_img, _ = network(content_images, style_images, return_img_and_feat=True)
         stylized_img = resample_layer(stylized_img)
 
