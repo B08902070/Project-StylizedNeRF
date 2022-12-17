@@ -412,8 +412,8 @@ def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine):
         nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
 
     """Dataset Creation"""
-    tmp_dataset = StyleRaySampler(data_path=args.datadir, style_path=args.styledir, factor=args.factor,
-                                  mode='valid', valid_factor=args.gen_factor, dataset_type=args.dataset_type,
+    tmp_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
+                                  mode='valid', valid_factor=args.gen_factor,
                                      no_ndc=args.no_ndc, pixel_alignment=args.pixel_alignment, spherify=args.spherify)
 
                                      
@@ -438,7 +438,6 @@ def run(args):
     shutil.copy(args.config, sv_path)
 
     """Create Nerf"""
-    print(device)
     nerf = Style_NeRF(args, mode='coarse').to(device)
     nerf.train()
     grad_vars = list(nerf.parameters())
