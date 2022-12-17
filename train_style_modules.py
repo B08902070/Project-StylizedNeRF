@@ -207,8 +207,9 @@ def train_decoder_with_nerf(args):
     network.to(device)
 
     style_tf = train_transform2()
-
-    content_dataset = CoorImageDataset(args.nerf_content_dir)
+    use_viewdir_str = 'UseViewDir' if args.use_view_dir else ''
+    nerf_content_dir = os.path.join(args.basedir, args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
+    content_dataset = CoorImageDataset(nerf_content_dir)
     style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 
     # Camera for Rendering
@@ -323,6 +324,8 @@ def train_decoder_with_nerf(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--config', is_config_file=True,
+                        help='config file path')
     parser.add_argument('--task', type=str, default='vae',
                         help='vae or pretrain_decoder or decoder_with_nerf')
     # Basic options
@@ -354,6 +357,8 @@ if __name__ == '__main__':
     parser.add_argument('--n_threads', type=int, default=16)
     parser.add_argument('--save_model_interval', type=int, default=500)
     parser.add_argument('--print_interval', type=int, default=50)
+    parser.add_argument("--act_type", type=str, default='relu',
+                        help='Types of activation: [relu, tanh, elu]')
 
     # train vae options
     parser.add_argument('--vae_d', type=int, default=4)
