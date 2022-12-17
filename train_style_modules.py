@@ -241,7 +241,7 @@ def train_decoder_with_nerf(args):
         patch_h_max, patch_w_max = patch_h_min + patch_size, patch_w_min + patch_size
     else:
         patch_h_min, patch_w_min = 0, 0
-        patch_h_max, patch_w_max = h, w
+        patch_h_max, patch_w_max = 512, 512
 
     resample_layer = nn.Upsample(size=(int(patch_h_max - patch_h_min), int(patch_w_max - patch_w_min)), mode='bilinear', align_corners=True)
     optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)
