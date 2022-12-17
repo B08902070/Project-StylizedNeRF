@@ -214,6 +214,7 @@ def train_decoder_with_nerf(args):
     # Camera for Rendering
     h, w, focal = content_dataset.hwf
     h, w = int(h), int(w)
+    print(f'h={h}, w={w}')
     cx, cy = w/2, h/2
     near_prj, far_prj = 1e-3, 1e5
     projectionMatrix = np.array([[-2*focal/w, 0,          1-2*cx/w,               0],
