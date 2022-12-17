@@ -329,7 +329,7 @@ if __name__ == '__main__':
     parser.add_argument("--datadir", type=str, default='./data/fern', help='input data directory')
     parser.add_argument('--content_dir', type=str, default='./all_contents/',
                         help='Directory path to a batch of content images')
-    parser.add_argument('--nerf_content_dir', type=str, default='./nerf_gen_data2/',
+    parser.add_argument('--nerf_content_dir', type=str, default='./log/nerf_gen_data2/',
                         help='Directory path to a batch of content images')
     parser.add_argument('--style_dir', type=str, default='./all_styles/',
                         help='Directory path to a batch of style images')
