@@ -438,6 +438,7 @@ def run(args):
     shutil.copy(args.config, sv_path)
 
     """Create Nerf"""
+    print(device)
     nerf = Style_NeRF(args, mode='coarse').to(device)
     nerf.train()
     grad_vars = list(nerf.parameters())
