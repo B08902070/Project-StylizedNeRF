@@ -109,7 +109,6 @@ class Camera:
         coor_cvv = self.WorldtoCVV(coor_world).reshape([batch_size, point_num, 3])  # (batch_size, point, 3)
         umax, vmax = PixeltoCvv(h=h, w=w, hid=0, wid=0)
         umin, vmin = PixeltoCvv(h=h, w=w, hid=h-1, wid=w-1)
-        cvv_backup = coor_cvv.clone()
         coor_cvv[..., 0] = (coor_cvv[..., 0] + 1) / 2 * (umax - umin) + umin
         coor_cvv[..., 1] = (coor_cvv[..., 1] + 1) / 2 * (vmax - vmin) + vmin
 
