@@ -289,7 +289,7 @@ def train_decoder_with_nerf(args):
                                                                   warped_msks[:, patch_h_min: patch_h_max, patch_w_min: patch_w_max]
         coor_dist_msk = (((warped_coor_map0 - coor_maps) ** 2).sum(-1, keepdim=True) < space_dist_threshold ** 2).float()
 
-        loss_t = (((torch.movedim(stylized_content, 1, -1) - warped_stylized_content0) ** 2) * warped_msks * coor_dist_msk).mean()
+        loss_t = (((torch.movedim(stylized_img, 1, -1) - warped_stylized_content0) ** 2) * warped_msks * coor_dist_msk).mean()
         loss_t = args.temporal_weight * loss_t
 
         loss_c = args.content_weight * loss_c
