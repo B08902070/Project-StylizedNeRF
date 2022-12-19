@@ -35,10 +35,15 @@ def train_transform():
     ]
     return transforms.Compose(transform_list)
 
-
-def train_transform2():
+def train_transform_content():
     transform_list = [
-        transforms.Resize(size=(512, 512)),
+        transforms.ToTensor()
+    ]
+    return transforms.Compose(transform_list)
+
+def train_transform_style(h, w):
+    transform_list = [
+        transforms.Resize(size=(h, w)),
         transforms.ToTensor()
     ]
     return transforms.Compose(transform_list)
@@ -211,11 +216,11 @@ def train_decoder_with_nerf(args):
     network.train()
     network.to(device)
 
-    content_tf = train_transform2()
-    style_tf = train_transform2()
+    content_tf = train_transform_content()
+    
     nerf_content_dir = os.path.join('./logs', args.expname + '_' + 'style_nerf_' + 'relu_' + 'UseViewDir_' + 'ImgFactor8', 'nerf_gen_data2/')
     content_dataset = CoorImageDataset(nerf_content_dir, content_tf)
-    style_dataset = FlatFolderDataset(args.style_dir, style_tf)
+    
 
     # Camera for Rendering
     h, w, focal = content_dataset.hwf
@@ -230,6 +235,9 @@ def train_decoder_with_nerf(args):
     camera = Camera(projectionMatrix=projectionMatrix)
     camera.to(device)
 
+    style_tf = train_transform_style(h, w)
+    style_dataset = FlatFolderDataset(args.style_dir, style_tf)
+    
     content_iter = iter(data.DataLoader(
         content_dataset, batch_size=args.batch_size,
         sampler=InfiniteSamplerWrapper(content_dataset),
@@ -246,7 +254,7 @@ def train_decoder_with_nerf(args):
         patch_h_max, patch_w_max = patch_h_min + patch_size, patch_w_min + patch_size
     else:
         patch_h_min, patch_w_min = 0, 0
-        patch_h_max, patch_w_max = patch_size, patch_size
+        patch_h_max, patch_w_max = h, w
 
     resample_layer = nn.Upsample(size=(int(patch_h_max - patch_h_min), int(patch_w_max - patch_w_min)), mode='bilinear', align_corners=True)
     optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)

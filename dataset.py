@@ -263,7 +263,6 @@ class StyleRaySampler(Dataset):
             return self.style_num * self.cps_valid.shape[0] * self.w * self.h
 
 
-
 class StyleRaySampler_gen(Dataset):
     def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, decode_path='./pretrained/decoder.pth', TT_far=4., collect_stylized_images=True):
         super().__init__()
@@ -484,6 +483,7 @@ class LightDataLoader:
         for key in self.keys:
             batch_data[key] = torch.from_numpy(np.stack(batch_data[key])).float()
         return batch_data
+
 
 def default_transform():
     transform_list = [
