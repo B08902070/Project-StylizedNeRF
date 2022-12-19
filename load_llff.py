@@ -73,7 +73,7 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
         sfx = '_{}'.format(factor)
         height = int(sh[0]/factor//16*16)
         width = int(sh[1]/factor//16*16)
-        _minify(basedir, resolutions=[height, width])
+        _minify(basedir, resolutions=[[height, width]])
         factor = factor
     elif height is not None:
         factor = sh[0] / float(height)
