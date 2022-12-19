@@ -5,7 +5,7 @@ import imageio
 ########## Slightly modified version of LLFF data loading code 
 ##########  see https://github.com/Fyusion/LLFF for original
 
-def _minify(basedir, factors=[], resolutions=[]):
+def _minify(basedir, factors=[], resolutions=[], h=0, w=0):
     needtoload = False
     for r in factors:
         imgdir = os.path.join(basedir, 'images_{}'.format(r))
@@ -31,7 +31,7 @@ def _minify(basedir, factors=[], resolutions=[]):
     for r in factors + resolutions:
         if isinstance(r, int):
             name = 'images_{}'.format(r)
-            resizearg = '{}%'.format(100./r)
+            resizearg = '{}x{}'.format((w/r//16+1)*16, (h/r//16+1)*16)
         else:
             name = 'images_{}x{}'.format(r[1], r[0])
             resizearg = '{}x{}'.format(r[1], r[0])
@@ -71,9 +71,7 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     
     if factor is not None:
         sfx = '_{}'.format(factor)
-        height = int((sh[0]/factor//16+1)*16)
-        width = int((sh[1]/factor//16+1)*16)
-        _minify(basedir, resolutions=[[height, width]])
+        _minify(basedir, factors=[[factor]], h=int(sh[0], w=int(sh[1])))
         factor = factor
     elif height is not None:
         factor = sh[0] / float(height)
