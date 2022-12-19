@@ -368,7 +368,7 @@ if __name__ == '__main__':
     parser.add_argument('--content_weight', type=float, default=1.0)
     parser.add_argument('--temporal_weight', type=float, default=50.)
     parser.add_argument('--n_threads', type=int, default=16)
-    parser.add_argument('--save_model_interval', type=int, default=500)
+    parser.add_argument('--save_model_interval', type=int, default=100)
     parser.add_argument('--print_interval', type=int, default=50)
     parser.add_argument("--act_type", type=str, default='relu',
                         help='Types of activation: [relu, tanh, elu]')
