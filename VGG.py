@@ -10,14 +10,14 @@ vgg = nn.Sequential(
                     # layer 2
                     nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
-                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False),
+                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
                     nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
                         
                     # layer 3
                     nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
-                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False),
+                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
                     nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
                         
@@ -28,7 +28,7 @@ vgg = nn.Sequential(
                     nn.ReLU(inplace=True),
                     nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
-                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False),
+                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
                     nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
 
@@ -40,7 +40,7 @@ vgg = nn.Sequential(
                     nn.ReLU(inplace=True),
                     nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
-                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False),
+                    nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
 
                     nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, padding_mode =  'reflect'),
                     nn.ReLU(inplace=True),
