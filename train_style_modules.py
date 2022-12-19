@@ -197,15 +197,14 @@ def train_decoder_with_nerf(args):
         print("Using NDC Coordinate System! Check Nerf and dataset to be LLFF !!!!!!!")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    save_dir = Path(args.save_dir)
+    save_dir = Path(args.save_dir) / 'decoder/'
     save_dir.mkdir(exist_ok=True, parents=True)
     log_dir = Path(args.log_dir)
     log_dir.mkdir(exist_ok=True, parents=True)
     writer = SummaryWriter(log_dir=str(log_dir))
 
     network = NST_Net(encoder_pretrained_path= args.vgg_pretrained_path)
-    decoder_dir = save_dir / 'decoder/'
-    ckpts = [os.path.join(decoder_dir, f) for f in sorted(os.listdir(decoder_dir)) if 'decoder_iter_' in f]
+    ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
     if len(ckpts) > 0 and not args.no_reload:
         ld_dict = torch.load(ckpts[-1])
         network.load_decoder_state_dict(ld_dict['decoder'])
@@ -307,6 +306,7 @@ def train_decoder_with_nerf(args):
             print('Iter %d Content Loss: %.3f Style Loss: %.3f Temporal Loss: %.3f' % (i, loss_c.item(), loss_s.item(), loss_t.item()))
 
         if i == 0 or (i + 1) % args.save_model_interval == 0 or (i + 1) == args.max_iter:
+            print('save decoder')
             state_dict = network.decoder.state_dict()
             for key in state_dict.keys():
                 state_dict[key] = state_dict[key].to(torch.device('cpu'))
