@@ -71,8 +71,8 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     
     if factor is not None:
         sfx = '_{}'.format(factor)
-        height = int(sh[0]/factor//16*16)
-        width = int(sh[1]/factor//16*16)
+        height = int((sh[0]/factor//16+1)*16)
+        width = int((sh[1]/factor//16+1)*16)
         _minify(basedir, resolutions=[[height, width]])
         factor = factor
     elif height is not None:
@@ -101,7 +101,8 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     sh = imageio.imread(imgfiles[0]).shape
     poses[:2, 4, :] = np.array(sh[:2]).reshape([2, 1])
     poses[2, 4, :] = poses[2, 4, :] * 1./factor
-    
+    poses[2, 4, :] = poses[2, 4, :] // 16 * 16
+
     if not load_imgs:
         return poses, bds
     
