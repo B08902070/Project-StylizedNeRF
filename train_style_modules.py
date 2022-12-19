@@ -316,6 +316,7 @@ def train_decoder_with_nerf(args):
             # Delete ckpts
             ckpts = [os.path.join(save_dir, f) for f in sorted(os.listdir(save_dir)) if 'decoder_iter_' in f]
             if len(ckpts) > args.ckp_num:
+                print(f'removing {ckpts[0]}')
                 os.remove(ckpts[0])
 
             warped_stylized_content0 = torch.clamp(warped_stylized_content0, 0, 1).detach().cpu().numpy()
