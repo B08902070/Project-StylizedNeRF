@@ -13,11 +13,18 @@ from torchvision import transforms
 from tensorboardX import SummaryWriter
 
 from camera import Camera
+from dataset import FlatFolderDataset, CoorImageDataset
 from learnable_latents import VAE
 from nst_helper import cal_mean_std
-from style_module_helper import *
+from sample import InfiniteSamplerWrapper
 
 
+
+def adjust_learning_rate(lr, lr_decay, optimizer, iteration_count):
+    """Imitating the original implementation"""
+    lr = lr / (1.0 + lr_decay * iteration_count)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 
 def train_transform():
@@ -239,7 +246,7 @@ def train_decoder_with_nerf(args):
         patch_h_max, patch_w_max = patch_h_min + patch_size, patch_w_min + patch_size
     else:
         patch_h_min, patch_w_min = 0, 0
-        patch_h_max, patch_w_max = h, w
+        patch_h_max, patch_w_max = patch_size, patch_size
 
     resample_layer = nn.Upsample(size=(int(patch_h_max - patch_h_min), int(patch_w_max - patch_w_min)), mode='bilinear', align_corners=True)
     optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)

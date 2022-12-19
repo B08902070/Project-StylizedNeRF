@@ -185,7 +185,30 @@ def load_obj(path):
     file.close()
     return obj
 
+def batchify(fn, chunk=1024*32):
+    """Render rays in smaller minibatches to avoid OOM.
+    """
+    if chunk is None:
+        return fn
 
+    def ret_func(**kwargs):
+        x = kwargs[list(kwargs.keys())[0]]
+        all_ret = {}
+        for i in range(0, x.shape[0], chunk):
+            end = min(i + chunk, x.shape[0])
+            chunk_kwargs = dict([[key, kwargs[key][i: end]] for key in kwargs.keys()])
+            ret = fn(**chunk_kwargs)
+            for k in ret:
+                if k not in all_ret:
+                    all_ret[k] = []
+                all_ret[k].append(ret[k])
+
+        all_ret = {k: torch.cat(all_ret[k], 0) for k in all_ret}
+        return all_ret
+
+    return ret_func
+
+    
 class plot_chart:
     def __init__(self, name='image', path='./plotting/', x_label='iter', y_label='Loss', max_len=100000):
         self.name = name

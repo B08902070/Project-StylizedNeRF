@@ -656,3 +656,112 @@ class LightDataLoader:
         for key in self.keys:
             batch_data[key] = torch.from_numpy(np.stack(batch_data[key])).float()
         return batch_data
+
+def default_transform():
+    transform_list = [
+        transforms.ToTensor()
+    ]
+    return transforms.Compose(transform_list)
+
+
+class FlatFolderDataset(Dataset):
+    def __init__(self, root, transform=default_transform()):
+        super(FlatFolderDataset, self).__init__()
+        self.root = root
+        self.paths = list(Path(self.root).glob('*'))
+        self.transform = transform
+
+    def __getitem__(self, index):
+        path = self.paths[index]
+        img = Image.open(str(path)).convert('RGB')
+        img = self.transform(img)
+        return img
+
+    def __len__(self):
+        return len(self.paths)
+
+    def name(self):
+        return 'FlatFolderDataset'
+
+
+class CoorImageDataset(Dataset):
+    def __init__(self, root, transform=default_transform()):
+        super(CoorImageDataset, self).__init__()
+        self.root = root
+        self.image_paths = sorted(list(Path(self.root).glob('rgb_*.png')))
+        self.geo_paths = sorted(list(Path(self.root).glob('geometry_*.npz')))
+        data = np.load(str(self.geo_paths[0]))
+        self.hwf = data['hwf']
+        # self.near, self.far = data['near'], data['far']
+        self.near, self.far = 0., 1.
+        self.transform = transform
+
+    def __getitem__(self, index):
+        image_path, geo_path = self.image_paths[index], self.geo_paths[index]
+        img = Image.open(str(image_path)).convert('RGB')
+        img = self.transform(img)
+        geo = np.load(str(geo_path))
+        coor_map, cps = geo['coor_map'], geo['cps']
+        return img, coor_map, cps
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def name(self):
+        return 'FlatFolderDataset'
+
+
+class CoorImageDataset_pl(Dataset):
+    def __init__(self, root, factor=0.01):
+        super(CoorImageDataset_pl, self).__init__()
+        self.root = root
+        self.image_paths = sorted(list(Path(self.root).glob('rgb_*.png')))
+        self.geo_paths = sorted(list(Path(self.root).glob('geometry_*.npz')))
+        data = np.load(str(self.geo_paths[0]))
+        self.hwf = data['hwf']
+        # self.near, self.far = data['near'], data['far']
+        self.near, self.far = 0., 1.
+        self.factor = factor
+        self.transform = default_transform()
+
+        ts = np.zeros([len(self.geo_paths), 3], dtype=np.float32)
+        for i in range(len(self.geo_paths)):
+            ts[i] = np.load(str(self.geo_paths[i]))['cps'][:3, 3]
+
+        dist = ts[np.newaxis] - ts[:, np.newaxis]
+        dist = dist ** 2
+        dist = dist.sum(-1) ** 0.5
+        self.dist = dist
+
+    def get_batch(self, batch_size, index=None):
+        if index is None:
+            index = np.random.randint(0, len(self.image_paths))
+        dists = self.dist[index]
+        inds = np.argsort(dists)
+        prange = max(int(self.factor*len(self.image_paths)), batch_size)
+        inds = inds[:prange]
+        inds = np.random.choice(inds, [batch_size], replace=(prange <= batch_size))
+        imgs, coor_maps, cps = [], [], []
+        for i in range(batch_size):
+            img, coor_map, cp = self.__getitem__(inds[i])
+            imgs.append(img)
+            coor_maps.append(coor_map)
+            cps.append(cp)
+        imgs = torch.stack(imgs).float()
+        coor_maps = torch.from_numpy(np.stack(coor_maps)).float()
+        cps = torch.from_numpy(np.stack(cps)).float()
+        return imgs, coor_maps, cps
+
+    def __getitem__(self, index):
+        image_path, geo_path = self.image_paths[index], self.geo_paths[index]
+        img = Image.open(str(image_path)).convert('RGB')
+        img = self.transform(img)
+        geo = np.load(str(geo_path))
+        coor_map, cps = geo['coor_map'], geo['cps']
+        return img, coor_map, cps
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def name(self):
+        return 'FlatFolderDataset'

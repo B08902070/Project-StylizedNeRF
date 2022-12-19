@@ -12,8 +12,8 @@ from dataset import RaySampler, StyleRaySampler, StyleRaySampler_gen, LightDataL
 from learnable_latents import VAE, Learnable_Latents
 from style_nerf import Style_NeRF, Style_Module
 from config import config_parser
-from nerf_helper import *
-from utils import mse2psnr, img2mse
+from utils import mse2psnr, img2mse, batchify
+from sample import sampling_pts_uniform, sampling_pts_fine
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -153,6 +153,26 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
             if global_step > args.origin_step:
                 return global_step
    
+def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine, nerf_gen_data_path):
+    """set nerf"""
+    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
+    if args.N_samples_fine > 0:
+        nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
+
+    """Dataset Creation"""
+    tmp_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
+                                  mode='valid', valid_factor=args.gen_factor,
+                                     no_ndc=args.no_ndc, pixel_alignment=args.pixel_alignment, spherify=args.spherify)
+
+                                     
+    tmp_dataloader = DataLoader(tmp_dataset, args.batch_size_style, shuffle=False, num_workers=args.num_workers,
+                                pin_memory=(args.num_workers > 0))
+    print("Preparing nerf data for style training ...")
+    render_nerf_for_nst(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
+                 sv_path=nerf_gen_data_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
+
+    return
+
 
 def check_nst_preprocess(nerf_gen_data_path, sv_path):
     """check nerf gen data"""
@@ -404,26 +424,6 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             global_step += 1
             if global_step > args.total_step:
                 return global_step
-
-def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine, nerf_gen_data_path):
-    """set nerf"""
-    nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
-    if args.N_samples_fine > 0:
-        nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
-
-    """Dataset Creation"""
-    tmp_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
-                                  mode='valid', valid_factor=args.gen_factor,
-                                     no_ndc=args.no_ndc, pixel_alignment=args.pixel_alignment, spherify=args.spherify)
-
-                                     
-    tmp_dataloader = DataLoader(tmp_dataset, args.batch_size_style, shuffle=False, num_workers=args.num_workers,
-                                pin_memory=(args.num_workers > 0))
-    print("Preparing nerf data for style training ...")
-    cal_geometry(nerf_forward=nerf_forward, samp_func=samp_func, dataloader=tmp_dataloader, args=args,
-                 sv_path=nerf_gen_data_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
-
-    return
 
  
 

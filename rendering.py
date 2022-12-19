@@ -5,12 +5,42 @@ import numpy as np
 import imageio
 from torch.utils.data import DataLoader
 
-
-from nerf_helper import alpha_composition
 from utils import save_makedir, to8b
 
 
-def cal_geometry(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
+def alpha_composition(pts_rgb, pts_sigma, t_values, sigma_noise_std=0., white_bkgd=False):
+    """Transforms model's predictions to semantically meaningful values.
+    Args:
+        pts_rgb: [num_rays, num_samples along ray, 3]. Prediction from model.
+        pts_sigma: [num_rays, num_samples along ray]. Prediction from model.
+        t_values: [num_rays, num_samples along ray]. Integration time.
+    Returns:
+        rgb_exp: [num_rays, 3]. Estimated RGB color of a ray.
+        weights: [num_rays, num_samples]. Weights assigned to each sampled color.
+        t_exp: [num_rays]. Estimated distance to object.
+    """
+    sigma2alpha = lambda raw, dists, act_fn=torch.relu: 1. - torch.exp(-act_fn(raw) * dists)
+
+    delta = t_values[..., 1:] - t_values[..., :-1]
+    delta = torch.cat([delta, torch.Tensor([1e10]).expand(delta[..., :1].shape)], -1)  # [N_rays, N_samples]
+
+    noise = 0.
+    if sigma_noise_std > 0:
+        noise = torch.randn(size = pts_sigma.shape, dtype = pts_sigma.dtype) * sigma_noise_std
+
+    alpha = sigma2alpha(torch.relu(pts_sigma + noise), delta)  # [N_rays, N_samples]
+    weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]
+    rgb_exp = torch.sum(weights[..., None] * pts_rgb, -2)  # [N_rays, 3]
+
+    t_exp = torch.sum(weights * t_values, -1)
+    acc_map = torch.sum(weights, -1)
+    if white_bkgd:
+        rgb_exp = rgb_exp + (1. - acc_map[..., None])
+
+    return rgb_exp, t_exp, weights
+
+
+def render_nerf_for_nst(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward_fine=None, samp_func_fine=None):
     """Render Scene into Images"""
     save_makedir(sv_path)
     dataset = dataloader.dataset
