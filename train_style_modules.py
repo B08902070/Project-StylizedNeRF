@@ -321,10 +321,10 @@ def train_decoder_with_nerf(args):
             warped_stylized_content0 = torch.clamp(warped_stylized_content0, 0, 1).detach().cpu().numpy()
             coor_dist_msk = np.broadcast_to(coor_dist_msk.detach().cpu().numpy(), [*coor_dist_msk.shape[:-1], 3])
             warped_msks = np.broadcast_to(warped_msks.detach().cpu().numpy(), [*warped_msks.shape[:-1], 3])
-            stylized_content = torch.movedim(torch.clamp(stylized_content, 0., 1.), 1, -1).detach().cpu().numpy()
+            stylized_img = torch.movedim(torch.clamp(stylized_img, 0., 1.), 1, -1).detach().cpu().numpy()
             for i in range(warped_stylized_content0.shape[0]):
                 Image.fromarray(np.uint8(255 * warped_stylized_content0[i])).save(args.log_dir + '/warped_stylized_content_%03d.png' % i)
-                Image.fromarray(np.uint8(255 * stylized_content[i])).save(args.log_dir + '/stylized_content_%03d.png' % i)
+                Image.fromarray(np.uint8(255 * stylized_img[i])).save(args.log_dir + '/stylized_content_%03d.png' % i)
                 Image.fromarray(np.uint8(255 * coor_dist_msk[i])).save(args.log_dir + '/coor_dist_msk_%03d.png' % i)
                 Image.fromarray(np.uint8(255 * warped_msks[i])).save(args.log_dir + '/warped_mask_%03d.png' % i)
             Image.fromarray(np.uint8(255*torch.movedim(style_images[0], 0, -1).detach().cpu().numpy())).save(args.log_dir + '/style_image.png')
