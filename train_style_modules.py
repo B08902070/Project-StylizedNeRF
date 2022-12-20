@@ -132,11 +132,8 @@ def train_vae(args):
         step = vae_data['step']
         vae_state_dict = vae_data['vae']
         print(vae_state_dict)
-        del vae_state_dict.fc_layers.0
-        del vae_state_dict.fc_layers.1
-        del vae_state_dict.fc_layers.2
-        del vae_state_dict.fc_layers.3
-        print vae_state_dict
+        del vae_state_dict.fc_layers
+        print(vae_state_dict)
 
     return 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
