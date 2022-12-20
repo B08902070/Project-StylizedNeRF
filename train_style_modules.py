@@ -17,7 +17,7 @@ from dataset import FlatFolderDataset, CoorImageDataset
 from learnable_latents import VAE
 from nst_helper import cal_mean_std
 from sample import InfiniteSamplerWrapper
-
+from config import config_parser
 
 
 def adjust_learning_rate(lr, lr_decay, optimizer, iteration_count):
@@ -337,54 +337,7 @@ def train_decoder_with_nerf(args):
 
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='vae',
-                        help='vae or pretrain_decoder or decoder_with_nerf')
-    parser.add_argument("--expname", type=str,
-                        help='experiment name')
-    # Basic options
-    parser.add_argument("--datadir", type=str, default='./data/fern', help='input data directory')
-    parser.add_argument('--content_dir', type=str, default='./all_contents/',
-                        help='Directory path to a batch of content images')
-    parser.add_argument('--nerf_content_dir', type=str, default='./log/nerf_gen_data2/',
-                        help='Directory path to a batch of content images')
-    parser.add_argument('--style_dir', type=str, default='./all_styles/',
-                        help='Directory path to a batch of style images')
-    parser.add_argument('--vgg_pretrained_path', type=str, default='./pretrained/vgg_normalised.pth')
-
-    parser.add_argument('--no_ndc', action='store_true')
-    parser.add_argument('--no_reload', action='store_true')
-
-    # training options
-    parser.add_argument('--save_dir', default='./pretrained/',
-                        help='Directory to save the model')
-    parser.add_argument('--ckp_num', type=int, default=3)
-    parser.add_argument('--log_dir', default='./logs/stylenet/',
-                        help='Directory to save the log')
-    parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--lr_decay', type=float, default=5e-5)
-    parser.add_argument('--max_iter', type=int, default=160000) # origin 160000
-    parser.add_argument('--batch_size', type=int, default=8)
-    parser.add_argument('--style_weight', type=float, default=2.)
-    parser.add_argument('--content_weight', type=float, default=1.0)
-    parser.add_argument('--temporal_weight', type=float, default=50.)
-    parser.add_argument('--n_threads', type=int, default=16)
-    parser.add_argument('--save_model_interval', type=int, default=100)
-    parser.add_argument('--print_interval', type=int, default=50)
-    parser.add_argument("--act_type", type=str, default='relu',
-                        help='Types of activation: [relu, tanh, elu]')
-    parser.add_argument("--factor", type=int, default=1,
-                        help='factor to downsample images')
-    
-
-    # train vae options
-    parser.add_argument('--vae_d', type=int, default=4)
-    parser.add_argument('--vae_w', type=int, default=512)
-    parser.add_argument('--vae_latent', type=int, default=32)
-    parser.add_argument('--vae_kl_lambda', type=float, default=0.1)
-
-    args = parser.parse_args()
+    args = config_parser(main_file='train_style_modules')
 
     if args.task == 'pretrain_decoder':
         pretrain_decoder(args)
