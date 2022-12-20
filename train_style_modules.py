@@ -124,22 +124,7 @@ def pretrain_decoder(args):
     writer.close()
 
 
-def train_vae(args):
-    vae_ckpt = './pretrained/vae.tar'
-    step=0
-    if os.path.exists(vae_ckpt):
-        vae_data = torch.load(vae_ckpt)
-        step = vae_data['step']
-        vae_state_dict = vae_data['vae']
-        for i in range(4):
-            del vae_state_dict[f'fc_layers.{i}.weight']
-            del vae_state_dict[f'fc_layers.{i}.bias']
-        torch.save({'vae': vae_state_dict,
-                        'step': i+1}, vae_ckpt)
-
-    
-
-    return 
+def train_vae(args): 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_dir = Path(args.save_dir)
     save_dir.mkdir(exist_ok=True, parents=True)
