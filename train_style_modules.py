@@ -134,8 +134,10 @@ def train_vae(args):
         for i in range(4):
             del vae_state_dict[f'fc_layers.{i}.weight']
             del vae_state_dict[f'fc_layers.{i}.bias']
+        torch.save({'vae': vae_state_dict,
+                        'step': i+1}, vae_ckpt)
 
-        print(vae_state_dict)
+    
 
     return 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
