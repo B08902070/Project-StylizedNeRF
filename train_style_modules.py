@@ -125,6 +125,19 @@ def pretrain_decoder(args):
 
 
 def train_vae(args):
+    vae_ckpt = './pretrained/vae.tar'
+    step=0
+    if os.path.exists(vae_ckpt):
+        vae_data = torch.load(vae_ckpt)
+        step = vae_data['step']
+        vae_state_dict = vae_data['vae']
+        del vae_state_dict.fc_layers.0
+        del vae_state_dict.fc_layers.1
+        del vae_state_dict.fc_layers.2
+        del vae_state_dict.fc_layers.3
+        print vae_state_dict
+
+    return 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     save_dir = Path(args.save_dir)
     save_dir.mkdir(exist_ok=True, parents=True)
@@ -147,6 +160,7 @@ def train_vae(args):
 
     vae = VAE(data_dim=1024, latent_dim=args.vae_latent, W=args.vae_w, D=args.vae_d, kl_lambda=args.vae_kl_lambda)
     vae.train()
+    vae.to(device)
     print(vae.state_dict)
     vae_ckpt = './pretrained/vae.tar'
     step=0
@@ -155,7 +169,7 @@ def train_vae(args):
         step = vae_data['step']
         print(vae_data['vae'])
         vae.load_state_dict(vae_data['vae'])
-    vae.to(device)
+    
     optimizer = torch.optim.SGD(vae.parameters(), lr=args.lr)
     for i in tqdm(range(step, args.max_iter)):
         adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)

@@ -47,7 +47,7 @@ class VAE_decoder(nn.Module):
 
     def forward(self, x):
         for layer in self.fc_layers:
-            x = F.relu(layer(x))
+            x = torch.relu(layer(x))
         return x
 
 def reparameterize(mu, sigma):
