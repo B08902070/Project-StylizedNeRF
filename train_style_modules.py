@@ -147,14 +147,15 @@ def train_vae(args):
 
     vae = VAE(data_dim=1024, latent_dim=args.vae_latent, W=args.vae_w, D=args.vae_d, kl_lambda=args.vae_kl_lambda)
     vae.train()
-    vae.to(device)
     print(vae.state_dict)
     vae_ckpt = './pretrained/vae.tar'
     step=0
     if os.path.exists(vae_ckpt):
         vae_data = torch.load(vae_ckpt)
         step = vae_data['step']
+        print(vae_data['vae'])
         vae.load_state_dict(vae_data['vae'])
+    vae.to(device)
     optimizer = torch.optim.SGD(vae.parameters(), lr=args.lr)
     for i in tqdm(range(step, args.max_iter)):
         adjust_learning_rate(args.lr, args.lr_decay, optimizer, iteration_count=i)
