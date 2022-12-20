@@ -131,8 +131,10 @@ def train_vae(args):
         vae_data = torch.load(vae_ckpt)
         step = vae_data['step']
         vae_state_dict = vae_data['vae']
-        print(vae_state_dict['fc_layers.0.weight'])
-        del vae_state_dict.fc_layers
+        del vae_state_dict['fc_layers.0.weight']
+        del vae_state_dict['fc_layers.1.weight']
+        del vae_state_dict['fc_layers.2.weight']
+        del vae_state_dict['fc_layers.3.weight']
         print(vae_state_dict)
 
     return 
