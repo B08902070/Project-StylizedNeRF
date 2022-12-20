@@ -491,5 +491,5 @@ def run(args):
 if __name__ == '__main__':
     args = config_parser(main_file='run_stylenerf')
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    
+    print(args)
     run(args=args)

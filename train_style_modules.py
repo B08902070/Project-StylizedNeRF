@@ -338,6 +338,7 @@ def train_decoder_with_nerf(args):
 
 if __name__ == '__main__':
     args = config_parser(main_file='train_style_modules')
+    print(args)
 
     if args.task == 'pretrain_decoder':
         pretrain_decoder(args)
