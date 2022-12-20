@@ -148,6 +148,7 @@ def train_vae(args):
     vae = VAE(data_dim=1024, latent_dim=args.vae_latent, W=args.vae_w, D=args.vae_d, kl_lambda=args.vae_kl_lambda)
     vae.train()
     vae.to(device)
+    print(vae.state_dict)
     vae_ckpt = './pretrained/vae.tar'
     step=0
     if os.path.exists(vae_ckpt):
@@ -338,7 +339,6 @@ def train_decoder_with_nerf(args):
 
 if __name__ == '__main__':
     args = config_parser(main_file='train_style_modules')
-    print(args)
 
     if args.task == 'pretrain_decoder':
         pretrain_decoder(args)
