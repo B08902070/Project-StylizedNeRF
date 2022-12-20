@@ -300,11 +300,15 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
     """NST Net"""
     nst_net = NST_Net(args.vgg_pth_path)
-    decoder_data = torch.load(sv_path+'/decoder.pth')
-    if 'decoder' in decoder_data.keys():
-        nst_net.load_decoder_state_dict(decoder_data['decoder'])
+    ckpts = [os.path.join(args.decoder_pth_dir, f) for f in sorted(os.listdir(args.decoder_pth_dir)) if 'decoder_iter_' in f]
+    if len(ckpts) > 0 and not args.no_reload:
+        print(f'loading {ckpts[-1]}')
+        ld_dict = torch.load(ckpts[-1])
+        nst_net.load_decoder_state_dict(ld_dict['decoder'])
     else:
-        nst_net.load_decoder_state_dict(decoder_data)
+        print('Please finetune decoder first')
+        exit(0)
+    nst_net.eval()
     nst_net.to(device)
     
 
