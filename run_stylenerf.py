@@ -242,8 +242,8 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
         all_style_features = torch.from_numpy(train_dataset.style_features).float().to(device)
         _, style_latents_mu, style_latents_sigma = vae.encode(all_style_features)
         # Set Latents
-        style_latents_mu = Variable(style_latents_mu.detach().cpu().numpy())
-        style_latents_sigma = Variable(style_latents_sigma.detach().cpu().numpy())
+        style_latents_mu = style_latents_mu.detach()
+        style_latents_sigma = style_latents_sigma.detach()
         latents_model.set_latents(style_latents_mu, style_latents_sigma)
 
     # Render valid style
