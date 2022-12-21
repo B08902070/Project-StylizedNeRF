@@ -156,7 +156,8 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
         start = 0
         while start < content_images.shape[0]:
             end = min(start + chunk, content_images.shape[0])
-            tmp_imgs = torch.movedim(torch.from_numpy(content_images[start: end]).float().to(device), -1, 1)
+            tmp_imgs = np.array([img_trans(img) for img in content_images[start:end]])
+            tmp_imgs = torch.movedim(torch.from_numpy(tmp_imgs).float().to(device), -1, 1)
             with torch.no_grad():
                 _, _, tmp_stylized_imgs, tmp_style_features = nst_net(content_img=tmp_imgs, style_img=style_img[:tmp_imgs.shape[0]], alpha=1, return_img_and_feat = True)
                 tmp_stylized_imgs = np.moveaxis(tmp_stylized_imgs.cpu().numpy(), 1, -1)
