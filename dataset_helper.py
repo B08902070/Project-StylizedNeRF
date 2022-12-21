@@ -160,7 +160,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
             for img in content_images[start:end]:
                 tmp_imgs = torch.cat([tmp_imgs, img_trans(img).unsqueeze(0)])
             print(torch.from_numpy(content_images[start:end]).shape)
-            
+            print(tmp_imgs.shape)
             tmp_imgs = torch.movedim(tmp_imgs.float().to(device), -1, 1)
             print(tmp_imgs.shape)
             with torch.no_grad():
