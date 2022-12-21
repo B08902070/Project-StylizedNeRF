@@ -222,7 +222,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
               kl_lambda=args.vae_kl_lambda)
     vae.eval()
     vae_ckpt = args.vae_pth_path
-    vae.load_state_dict(torch.load(vae_ckpt))
+    vae.load_state_dict(torch.load(vae_ckpt)['vae'])
 
     """Latents Module"""
     latents_model = Learnable_Latents(style_num=train_dataset.style_num, frame_num=train_dataset.frame_num, latent_dim=args.vae_latent)

@@ -22,7 +22,7 @@ def config_run_stylenerf():
     parser.add_argument("--styledir", type=str, default='./all_styles/')
     parser.add_argument("--ckpt_dir_decoder", type=str, default='./pretrained/decoder/')
     parser.add_argument("--vgg_pth_path", type=str, default='./pretrained/vgg_normalised.pth')
-    parser.add_argument("--vae_pth_path", type=str, default='./pretrained/vae.pth')
+    parser.add_argument("--vae_pth_path", type=str, default='./pretrained/vae.tar')
     parser.add_argument("--dataset_type", type=str, default='llff')
     parser.add_argument("--factor", type=int, default=1,
                         help='factor to downsample images')
