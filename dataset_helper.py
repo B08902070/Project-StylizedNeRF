@@ -156,7 +156,6 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
         start = 0
         while start < content_images.shape[0]:
             end = min(start + chunk, content_images.shape[0])
-            for 
             tmp_imgs = torch.Tensor([img_trans(img) for img in content_images[start:end]])
             tmp_imgs = torch.movedim(tmp_imgs.float().to(device), -1, 1)
             with torch.no_grad():
