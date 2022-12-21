@@ -305,7 +305,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     nerf_fine.eval()
     nerf.eval()
 
-    latents_model.set_optimizer()
+    latents_model.set_latents_optim()
 
     while True:
         for _ in range(rounds_per_epoch):
