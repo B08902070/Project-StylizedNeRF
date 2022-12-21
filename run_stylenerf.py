@@ -33,7 +33,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
 
     """Render valid for nerf"""
     if args.render_valid:
-        render_path = Path(sv_path), 'render_valid_' + str(global_step))
+        render_path = sv_path / ('render_valid_' + str(global_step))
         valid_dataset = train_dataset
         valid_dataset.set_mode('valid')
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
