@@ -302,10 +302,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     
 
     """Model Mode for Style"""
-    nerf.set_enable_style(True)
-    if args.N_samples_fine > 0:
-        nerf_fine.set_enable_style(True)
-        nerf_fine.eval()
+    nerf_fine.eval()
     nerf.eval()
 
     latents_model.set_optimizer()
