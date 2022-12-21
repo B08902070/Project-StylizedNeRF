@@ -3,6 +3,7 @@ import shutil
 from nst_net import NST_Net
 from rendering import *
 from tqdm import tqdm
+from pathlib import Path
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -32,7 +33,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
 
     """Render valid for nerf"""
     if args.render_valid:
-        render_path = os.path.join(sv_path, 'render_valid_' + str(global_step))
+        render_path = Path(sv_path), 'render_valid_' + str(global_step))
         valid_dataset = train_dataset
         valid_dataset.set_mode('valid')
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
@@ -174,7 +175,7 @@ def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine, nerf_gen_d
     return
 
 
-def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, ckpts_path, sv_path, nerf_gen_data_path):
+def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, sv_path, nerf_gen_data_path):
     """batchify nerf"""
     nerf_forward = batchify(lambda **kwargs: nerf(**kwargs), args.chunk)
     nerf_forward_fine = batchify(lambda **kwargs: nerf_fine(**kwargs), args.chunk)
@@ -188,7 +189,9 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
     
     """Load Check Point for style module"""
-    ckpts_style = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' in f and 'latent' not in f]
+    ckpt_dir_style = os.path.join(sv_path, 'style/')
+    save_makedir(ckpt_dir_style)
+    ckpts_style = [os.path.join(ckpt_dir_style, f) for f in sorted(os.listdir(ckpt_dir_style)) if 'tar' in f and 'style' in f and 'latent' not in f]
     if len(ckpts_style) > 0 and not args.no_reload:
         ckpt_path_style = ckpts_style[-1]
         print('Reloading Style Model from ', ckpt_path_style)
@@ -224,6 +227,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     """Latents Module"""
     latents_model = Learnable_Latents(style_num=train_dataset.style_num, frame_num=train_dataset.frame_num, latent_dim=args.vae_latent)
     vae.to(device)
+    ckpt_dir_latent = os.path.join(sv_path, '')
     latent_ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' in f]
     print('Found ckpts', latent_ckpts, ' from ', ckpts_path, ' For Latents Module.')
     if len(latent_ckpts) > 0 and not args.no_reload:
@@ -424,7 +428,8 @@ def run(args):
 
     """Saving Configuration"""
     use_viewdir_str = '_UseViewDir_' if args.use_viewdir else ''
-    sv_path = os.path.join(args.basedir, args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
+    sv_path = Path(args.basedir) / (args.expname + '_' + args.nerf_type + '_' + args.act_type + use_viewdir_str + 'ImgFactor' + str(int(args.factor)))
+    print(sv_path)
     save_makedir(sv_path)
     shutil.copy(args.config, sv_path)
 
@@ -475,7 +480,7 @@ def run(args):
             print('{} does not exist, please run {} first.'.format(nerf_gen_data_path, train_decoder_nerf_cmd))
             exit(0)
         global_step = train_style_nerf(args=args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine,
-                         nerf=nerf, nerf_fine=nerf_fine, ckpts_path=ckpt_path, sv_path=sv_path, nerf_gen_data_path=nerf_gen_data_path)
+                         nerf=nerf, nerf_fine=nerf_fine, sv_path=sv_path, nerf_gen_data_path=nerf_gen_data_path)
 
     return
 
