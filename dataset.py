@@ -325,7 +325,7 @@ class StyleRaySampler_gen(Dataset):
         """Style Data"""
         if not os.path.exists(data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data.npz'):
             print("Stylizing training data ...")
-            style_names, style_paths, style_images, style_features = style_data_prepare(style_path, images, size=512, chunk=8, sv_path=data_path + '/stylized_gen_' + str(factor) + '/', decoder_dir=decoder_dir, no_reload=no_reload)
+            style_names, style_paths, style_images, style_features = style_data_prepare(style_path, images, H=H, W=W, chunk=8, sv_path=data_path + '/stylized_gen_' + str(factor) + '/', decoder_dir=decoder_dir, no_reload=no_reload)
             np.savez(data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data', style_names=style_names, style_paths=style_paths, style_images=style_images, style_features=style_features)
         else:
             print("Stylized data from " + data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data.npz')

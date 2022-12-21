@@ -108,18 +108,17 @@ def ndc_rays_np(H, W, focal, near, rays_o, rays_d):
 
     return rays_o, rays_d
 
-def image_transform(size, crop=False):
+def image_transform(H, W, crop=False):
     transform_list = []
     transform_list.append(transforms.ToTensor())
-    if size != 0:
-        transform_list.append(transforms.Resize(size))
+    transform_list.append(transforms.Resize((H, W)))
     if crop:
         transform_list.append(transforms.CenterCrop(size))   
     transform = transforms.Compose(transform_list)
     return transform
 
 
-def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=None, decoder_dir='./pretrained/decoder/', save_geo=True, no_reload=False):
+def style_data_prepare(style_path, content_images, H, W, chunk=64, sv_path=None, decoder_dir='./pretrained/decoder/', save_geo=True, no_reload=False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     """nst net"""
@@ -140,7 +139,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
     print(style_path, images_path)
     style_images, style_paths, style_names = [], [], {}
     style_features = np.zeros([len(images_path), 1024], dtype=np.float32)
-    img_trans = image_transform(size)
+    img_trans = image_transform(H, W)
     for i in tqdm(range(len(images_path))):
         images_path[i] = images_path[i].replace('\\', '/')
         print("Style Image: " + images_path[i])
@@ -158,12 +157,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
         start = 0
         while start < content_images.shape[0]:
             end = min(start + chunk, content_images.shape[0])
-            tmp_imgs = torch.Tensor([])
-            for img in content_images[start:end]:
-                tmp_imgs = torch.cat([tmp_imgs, img_trans(img).unsqueeze(0)])
-            print(torch.from_numpy(content_images[start:end]).shape)
-            print(tmp_imgs.shape)
-            tmp_imgs = torch.movedim(tmp_imgs.float().to(device), -1, 1)
+            tmp_imgs = torch.movedim(torch.from_numpy(content_images[start:end]).float().to(device), -1, 1)
             print(tmp_imgs.shape)
             with torch.no_grad():
                 _, _, tmp_stylized_imgs, tmp_style_features = nst_net(content_img=tmp_imgs, style_img=style_img[:tmp_imgs.shape[0]], alpha=1, return_img_and_feat = True)
