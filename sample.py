@@ -33,7 +33,7 @@ class InfiniteSamplerWrapper(data.sampler.Sampler):
 
 
 
-def sampling_pts_uniform(rays_o, rays_d, N_samples=64, near=0., far=1.05, harmony=False, perturb=False):
+def sampling_pts_uniform(rays_o, rays_d, N_samples=64, near=0., far=1.05, harmony=False, perturb=False, device=None):
     #  Intersect, ts_nf of shape [ray, box] and [ray, box, 2]
     ray_num = rays_o.shape[0]
 
