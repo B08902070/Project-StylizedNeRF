@@ -228,6 +228,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     latents_model = Learnable_Latents(style_num=train_dataset.style_num, frame_num=train_dataset.frame_num, latent_dim=args.vae_latent)
     vae.to(device)
     ckpt_dir_latent = sv_path / 'latent'
+    save_makedir(ckpt_dir_latent)
     latent_ckpts = [ f for f in sorted(ckpt_dir_latent.glob('*')) if 'tar' in str(f) and 'style' not in str(f) and 'latent' in str(f)]
     print('Found ckpts', latent_ckpts, ' from ', ckpt_dir_latent, ' For Latents Module.')
     if len(latent_ckpts) > 0 and not args.no_reload:
