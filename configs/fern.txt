@@ -20,7 +20,7 @@ use_viewdir
 sigma_noise_std = 1e0
 
 origin_step = 120001
-total_step = 5000001
+total_step = 500001
 
 style_D = 8
 valid_factor = 3
