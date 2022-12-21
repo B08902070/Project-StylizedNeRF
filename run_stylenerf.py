@@ -207,7 +207,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
                                         mode='train', valid_factor=args.valid_factor, 
                                         no_ndc=args.no_ndc,
                                         pixel_alignment=args.pixel_alignment, spherify=args.spherify,
-                                        decode_dir=args.ckpt_dir_decoder)
+                                        decoder_dir=args.ckpt_dir_decoder)
     train_dataset.collect_all_stylized_images()
     train_dataset.set_mode('train_style')
 
