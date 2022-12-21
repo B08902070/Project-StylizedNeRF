@@ -146,7 +146,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                 print('Saved checkpoints at', path)
 
                 # Delete ckpts
-                ckpts = [ckpt_dir_nerf / f for f in sorted(ckpt_dir_nerf.glob('*')) if 'tar' in f]
+                ckpts = [ckpt_dir_nerf / f for f in sorted(list(ckpt_dir_nerf.glob('*'))) if 'tar' in f]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
@@ -191,7 +191,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     """Load Check Point for style module"""
     ckpt_dir_style = sv_path / 'style'
     save_makedir(ckpt_dir_style)
-    ckpts_style = [ckpt_dir_style / f for f in sorted(ckpt_dir_style.glob('*')) if 'tar' in f and 'style' in f and 'latent' not in f]
+    ckpts_style = [ckpt_dir_style / f for f in sorted(list(ckpt_dir_style.glob('*'))) if 'tar' in f and 'style' in f and 'latent' not in f]
     if len(ckpts_style) > 0 and not args.no_reload:
         ckpt_path_style = ckpts_style[-1]
         print('Reloading Style Model from ', ckpt_path_style)
@@ -228,7 +228,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     latents_model = Learnable_Latents(style_num=train_dataset.style_num, frame_num=train_dataset.frame_num, latent_dim=args.vae_latent)
     vae.to(device)
     ckpt_dir_latent = sv_path / 'latent'
-    latent_ckpts = [ckpt_dir_latent / f for f in sorted(ckpt_dir_latent.glob('*')) if 'tar' in f and 'style' not in f and 'latent' in f]
+    latent_ckpts = [ckpt_dir_latent / f for f in sorted(list(ckpt_dir_latent.glob('*'))) if 'tar' in f and 'style' not in f and 'latent' in f]
     print('Found ckpts', latent_ckpts, ' from ', ckpt_dir_latent, ' For Latents Module.')
     if len(latent_ckpts) > 0 and not args.no_reload:
         latent_ckpt_path = latent_ckpts[-1]
@@ -289,7 +289,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     """NST Net"""
     nst_net = NST_Net(args.vgg_pth_path)
     ckpt_dir_decoder = Path(args.ckpt_dir_decoder)
-    ckpts = [ckpt_dir_decoder / f for f in sorted(ckpt_dir_decoder.glob('*')) if 'decoder_iter_' in f]
+    ckpts = [ckpt_dir_decoder / f for f in sorted(list(ckpt_dir_decoder.glob('*'))) if 'decoder_iter_' in f]
     if len(ckpts) > 0 and not args.no_reload:
         print(f'loading {ckpts[-1]}')
         ld_dict = torch.load(ckpts[-1])
@@ -392,7 +392,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
                 }, path)
                 print('Saved checkpoints at', path)
                 # Delete ckpts
-                ckpts = [ckpt_dir_style / f for f in sorted(ckpt_dir_style.glob('*')) if 'tar' in f and 'style' in f and 'latent' not in f]
+                ckpts = [ckpt_dir_style / f for f in sorted(list(ckpt_dir_style.glob('*'))) if 'tar' in f and 'style' in f and 'latent' not in f]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
@@ -449,7 +449,7 @@ def run(args):
     global_step = 0
     ckpt_dir_nerf = sv_path / 'nerf'
     save_makedir(ckpt_dir_nerf)
-    ckpts = [ckpt_dir_nerf / f for f in sorted(ckpt_dir_nerf.glob('*')) if 'tar' in f and 'style' not in f and 'latent' not in f]
+    ckpts = [ckpt_dir_nerf / f for f in sorted(list(ckpt_dir_nerf.glob('*'))) if 'tar' in f and 'style' not in f and 'latent' not in f]
     print('Found ckpts', ckpts, ' from ', ckpt_dir_nerf)
     if len(ckpts) > 0 and not args.no_reload:
         ckpt_nerf = ckpts[-1]
