@@ -119,17 +119,20 @@ def image_transform(size, crop=False):
     return transform
 
 
-def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=None, decode_path='./pretrained/decoder.pth', save_geo=True):
+def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=None, decoder_dir='./pretrained/decoder/', save_geo=True, no_reload=False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     """nst net"""
     encoder_path = './pretrained/vgg_normalised.pth'
     nst_net = NST_Net(encoder_pretrained_path=encoder_path)
-    decoder_data = torch.load(decode_path)
-    if 'decoder' in decoder_data.keys():
-        nst_net.load_decoder_state_dict(decoder_data['decoder'])
+    ckpts = [os.path.join(decoder_dir, f) for f in sorted(os.listdir(decoder_dir)) if 'decoder_iter_' in f]
+    if len(ckpts) > 0 and not no_reload:
+        print(f'loading {ckpts[-1]}')
+        ld_dict = torch.load(ckpts[-1])
+        nst_net.load_decoder_state_dict(ld_dict['decoder'])
     else:
-        nst_net.load_decoder_state_dict(decoder_data)
+        print('Please finetune decoder first')
+        exit(0)
     nst_net.eval()
     nst_net.to(device)
 
@@ -155,7 +158,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
             end = min(start + chunk, content_images.shape[0])
             tmp_imgs = torch.movedim(torch.from_numpy(content_images[start: end]).float().to(device), -1, 1)
             with torch.no_grad():
-                tmp_stylized_imgs, tmp_style_features = nst_net(content=tmp_imgs, style=style_img[:tmp_imgs.shape[0]], alpha=1, return_img_and_feat = True)
+                _, _, tmp_stylized_imgs, tmp_style_features = nst_net(content=tmp_imgs, style=style_img[:tmp_imgs.shape[0]], alpha=1, return_img_and_feat = True)
                 tmp_stylized_imgs = np.moveaxis(tmp_stylized_imgs.cpu().numpy(), 1, -1)
             for j in range(end-start):
                 stylized_images[start+j] = cv2.resize(tmp_stylized_imgs[j], (stylized_images.shape[2], stylized_images.shape[1]))

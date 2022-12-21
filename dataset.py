@@ -122,7 +122,7 @@ class RaySampler(Dataset):
 
 
 class StyleRaySampler(Dataset):
-    def __init__(self, data_path, style_path, factor=2., mode='train', valid_factor=3, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
+    def __init__(self, data_path, style_path, factor=2., mode='train', valid_factor=3, no_ndc=False, pixel_alignment=False, spherify=False, TT_far=4.):
         super().__init__()
 
         images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
@@ -264,27 +264,22 @@ class StyleRaySampler(Dataset):
 
 
 class StyleRaySampler_gen(Dataset):
-    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, decode_path='./pretrained/decoder.pth', TT_far=4., collect_stylized_images=True):
+    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, dataset_type='llff', no_ndc=False, pixel_alignment=False, spherify=False, decoder_dir='./pretrained/decoder/', collect_stylized_images=True):
         super().__init__()
 
         K = None
-        if dataset_type == 'llff':
-            images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
-            hwf = poses[0, :3, -1]
-            poses = poses[:, :3, :4]
-            print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
-            print('DEFINING BOUNDS')
-            if no_ndc:
-                near = np.ndarray.min(bds) * .9
-                far = np.ndarray.max(bds) * 1.
-            else:
-                near = 0.
-                far = 1.
-            print('NEAR FAR', near, far)
+        images, poses, bds, render_poses, i_test = load_llff_data(data_path, factor, recenter=True, bd_factor=.75, spherify=spherify)
+        hwf = poses[0, :3, -1]
+        poses = poses[:, :3, :4]
+        print('Loaded llff', images.shape, render_poses.shape, hwf, data_path)
+        print('DEFINING BOUNDS')
+        if no_ndc:
+            near = np.ndarray.min(bds) * .9
+            far = np.ndarray.max(bds) * 1.
         else:
-            poses = hwf = K = near = far = None
-            print('Unknown dataset type', dataset_type, 'exiting')
-            exit(0)
+            near = 0.
+            far = 1.
+        print('NEAR FAR', near, far)
 
         H, W, focal = hwf
         H, W = int(H), int(W)
@@ -323,14 +318,14 @@ class StyleRaySampler_gen(Dataset):
             rays_o_valid[i] = tmp_rays_o
             rays_d_valid[i] = tmp_rays_d
 
-        if dataset_type == 'llff' and not no_ndc:
+        if not no_ndc:
             rays_o, rays_d = ndc_rays_np(H, W, K[0][0], 1., rays_o, rays_d)
             rays_o_valid, rays_d_valid = ndc_rays_np(H, W, K[0][0], 1., rays_o_valid, rays_d_valid)
 
         """Style Data"""
         if not os.path.exists(data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data.npz'):
             print("Stylizing training data ...")
-            style_names, style_paths, style_images, style_features = style_data_prepare(style_path, images, size=512, chunk=8, sv_path=data_path + '/stylized_gen_' + str(factor) + '/', decode_path=decode_path)
+            style_names, style_paths, style_images, style_features = style_data_prepare(style_path, images, size=512, chunk=8, sv_path=data_path + '/stylized_gen_' + str(factor) + '/', decoder_dir=decoder_dir, no_reload=args.no_reload)
             np.savez(data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data', style_names=style_names, style_paths=style_paths, style_images=style_images, style_features=style_features)
         else:
             print("Stylized data from " + data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data.npz')
@@ -356,7 +351,7 @@ class StyleRaySampler_gen(Dataset):
         self.style_features = style_features
         self.style_num = self.style_images.shape[0]
 
-        self.is_ndc = (dataset_type == 'llff' and not no_ndc)
+        self.is_ndc = (not no_ndc)
         self.rays_o_dict = {'train': rays_o, 'valid':rays_o_valid, 'train_style':rays_o, 'valid_style':rays_o_valid}
         self.rays_d_dict = {'train': rays_d, 'valid':rays_d_valid, 'train_style':rays_d, 'valid_style':rays_d_valid}
         self.stylized_images_uint8 = None
@@ -523,62 +518,6 @@ class CoorImageDataset(Dataset):
         # self.near, self.far = data['near'], data['far']
         self.near, self.far = 0., 1.
         self.transform = transform
-
-    def __getitem__(self, index):
-        image_path, geo_path = self.image_paths[index], self.geo_paths[index]
-        img = Image.open(str(image_path)).convert('RGB')
-        img = self.transform(img)
-        geo = np.load(str(geo_path))
-        coor_map, cps = geo['coor_map'], geo['cps']
-        return img, coor_map, cps
-
-    def __len__(self):
-        return len(self.image_paths)
-
-    def name(self):
-        return 'FlatFolderDataset'
-
-
-class CoorImageDataset_pl(Dataset):
-    def __init__(self, root, factor=0.01):
-        super(CoorImageDataset_pl, self).__init__()
-        self.root = root
-        self.image_paths = sorted(list(Path(self.root).glob('rgb_*.png')))
-        self.geo_paths = sorted(list(Path(self.root).glob('geometry_*.npz')))
-        data = np.load(str(self.geo_paths[0]))
-        self.hwf = data['hwf']
-        # self.near, self.far = data['near'], data['far']
-        self.near, self.far = 0., 1.
-        self.factor = factor
-        self.transform = default_transform()
-
-        ts = np.zeros([len(self.geo_paths), 3], dtype=np.float32)
-        for i in range(len(self.geo_paths)):
-            ts[i] = np.load(str(self.geo_paths[i]))['cps'][:3, 3]
-
-        dist = ts[np.newaxis] - ts[:, np.newaxis]
-        dist = dist ** 2
-        dist = dist.sum(-1) ** 0.5
-        self.dist = dist
-
-    def get_batch(self, batch_size, index=None):
-        if index is None:
-            index = np.random.randint(0, len(self.image_paths))
-        dists = self.dist[index]
-        inds = np.argsort(dists)
-        prange = max(int(self.factor*len(self.image_paths)), batch_size)
-        inds = inds[:prange]
-        inds = np.random.choice(inds, [batch_size], replace=(prange <= batch_size))
-        imgs, coor_maps, cps = [], [], []
-        for i in range(batch_size):
-            img, coor_map, cp = self.__getitem__(inds[i])
-            imgs.append(img)
-            coor_maps.append(coor_map)
-            cps.append(cp)
-        imgs = torch.stack(imgs).float()
-        coor_maps = torch.from_numpy(np.stack(coor_maps)).float()
-        cps = torch.from_numpy(np.stack(cps)).float()
-        return imgs, coor_maps, cps
 
     def __getitem__(self, index):
         image_path, geo_path = self.image_paths[index], self.geo_paths[index]

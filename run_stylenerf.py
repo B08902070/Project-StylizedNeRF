@@ -8,7 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from torch.autograd import Variable 
-from dataset import RaySampler, StyleRaySampler, StyleRaySampler_gen, LightDataLoader
+from dataset import RaySampler, StyleRaySampler_gen, LightDataLoader
 from learnable_latents import VAE, Learnable_Latents
 from style_nerf import Style_NeRF, Style_Module
 from config import config_parser
@@ -173,7 +173,6 @@ def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine, nerf_gen_d
 
     return
 
-
 def check_nst_preprocess(nerf_gen_data_path, sv_path):
     """check nerf gen data"""
     if not os.path.exists(nerf_gen_data_path):
@@ -187,7 +186,6 @@ def check_nst_preprocess(nerf_gen_data_path, sv_path):
         finetune_decoder_cmd = './python3 train_style_modules.py --task finetune_decoder'
         print('{} does not exist, please run {} first.'.format(sv_path+sv_name, finetune_decoder_cmd))
         exit(0)
-
 
 def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, ckpts_path, sv_path, nerf_gen_data_path):
     """batchify nerf"""
@@ -216,11 +214,10 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     """Dataset Creation"""
     train_dataset = StyleRaySampler_gen(data_path=args.datadir, gen_path=nerf_gen_data_path, style_path=args.styledir,
                                         factor=args.factor,
-                                        mode='train', valid_factor=args.valid_factor, dataset_type=args.dataset_type,
+                                        mode='train', valid_factor=args.valid_factor, 
                                         no_ndc=args.no_ndc,
                                         pixel_alignment=args.pixel_alignment, spherify=args.spherify,
-                                        decode_path=sv_path+'/decoder.pth',
-                                        TT_far=args.TT_far)
+                                        decode_path=args.decoder_pth_dir)
     train_dataset.collect_all_stylized_images()
     train_dataset.set_mode('train_style')
 
