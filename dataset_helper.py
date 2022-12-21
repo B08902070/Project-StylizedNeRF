@@ -153,7 +153,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
         stylized_images = np.zeros_like(content_images)
         style_feature = np.zeros([1024], dtype=np.float32)
         style_img = style_img.float().to(device).unsqueeze(0).expand([chunk, *style_img.shape])
-        print('style_ img', style_img)
+        print('style_ img', style_img.shape)
         start = 0
         while start < content_images.shape[0]:
             end = min(start + chunk, content_images.shape[0])
