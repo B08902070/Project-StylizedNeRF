@@ -94,9 +94,9 @@ class Learnable_Latents(nn.Module):
         self.frame_num = frame_num
         self.latent_dim = latent_dim
 
-        self.latents = Variable(torch.randn(self.style_num, self.frame_num, self.latent_dim))
-        self.latents_mu = Variable(self.style_num, self.latent_dim)
-        self.latents_sigma = Variable(self.style_num, self.latent_dim)
+        self.latents = torch.randn(self.style_num, self.frame_num, self.latent_dim)
+        self.latents_mu = torch.randn(self.style_num, self.latent_dim)
+        self.latents_sigma = torch.randn(self.style_num, self.latent_dim)
 
         self.sigma_scale = 1.0
         self.set_requires_grad()
