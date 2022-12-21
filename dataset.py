@@ -301,6 +301,7 @@ class StyleRaySampler_gen(Dataset):
         images = np.zeros([frame_num, H, W, 3], np.float32)
         cps = np.zeros([frame_num, 4, 4], np.float32)
         for i in range(frame_num):
+            print(Image.open(str(self.image_paths[i]))
             images[i] = np.array(Image.open(str(self.image_paths[i])).convert('RGB'), dtype=np.float32) / 255.
             cps[i] = np.load(str(self.geo_paths[i]))['cps']
 
