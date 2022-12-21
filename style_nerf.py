@@ -149,7 +149,7 @@ class Style_Module(nn.Module):
         cur_dim = self.input_ch
         for i in range(self.D-1):
             if i in self.skips:
-                dim += args.embed_freq_coor*3*2+3
+                cur_dim += args.embed_freq_coor*3*2+3
             self.layers.append(nn.Linear(cur_dim, self.W))
             cur_dim = self.W
         self.layers.append(nn.Linear(cur_dim, 3))
