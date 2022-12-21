@@ -468,7 +468,7 @@ def run(args):
         global_step = pretrain_nerf(args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine, 
                       nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpt_dir_nerf=ckpt_dir_nerf, sv_path=sv_path)
 
-    nerf_gen_data_path = sv_path / '/nerf_gen_data2/'
+    nerf_gen_data_path = sv_path / 'nerf_gen_data2/'
     """For generate nerf images"""
     if args.gen_nerf_images:
         gen_nerf_images(args=args, samp_func = samp_func, samp_func_fine=samp_func_fine, nerf=nerf, nerf_fine=nerf_fine,
