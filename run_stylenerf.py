@@ -308,7 +308,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     latents_model.set_latents_optim()
 
     while True:
-        for _ in range(rounds_per_epoch):
+        for _ in tqdm(range(rounds_per_epoch)):
             batch_data = train_dataloader.get_batch()
 
             # Get batch data
