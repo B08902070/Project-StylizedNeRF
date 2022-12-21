@@ -264,7 +264,7 @@ class StyleRaySampler(Dataset):
 
 
 class StyleRaySampler_gen(Dataset):
-    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, no_ndc=False, pixel_alignment=False, spherify=False, decoder_dir='./pretrained/decoder/', collect_stylized_images=True):
+    def __init__(self, data_path, style_path, gen_path, factor=2., mode='train', valid_factor=0.05, no_ndc=False, pixel_alignment=False, spherify=False, decoder_dir='./pretrained/decoder/', collect_stylized_images=True, no_reload=False):
         super().__init__()
 
         K = None
@@ -325,7 +325,7 @@ class StyleRaySampler_gen(Dataset):
         """Style Data"""
         if not os.path.exists(data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data.npz'):
             print("Stylizing training data ...")
-            style_names, style_paths, style_images, style_features = style_data_prepare(style_path, images, size=512, chunk=8, sv_path=data_path + '/stylized_gen_' + str(factor) + '/', decoder_dir=decoder_dir, no_reload=args.no_reload)
+            style_names, style_paths, style_images, style_features = style_data_prepare(style_path, images, size=512, chunk=8, sv_path=data_path + '/stylized_gen_' + str(factor) + '/', decoder_dir=decoder_dir, no_reload=no_reload)
             np.savez(data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data', style_names=style_names, style_paths=style_paths, style_images=style_images, style_features=style_features)
         else:
             print("Stylized data from " + data_path + '/stylized_gen_' + str(factor) + '/' + '/stylized_data.npz')
