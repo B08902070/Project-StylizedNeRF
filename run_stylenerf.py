@@ -402,7 +402,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
                 }, path)
                 print('Saved checkpoints at', path)
                 # Delete ckpts
-                ckpts = [ckpt_dir_latent / f for f in sorted(ckpt_dir_latent) if 'tar' in f and 'style' not in f and 'latent' in f]
+                ckpts = [f for f in sorted(ckpt_dir_latent.glob('*')) if 'tar' in f and 'style' not in f and 'latent' in f]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
