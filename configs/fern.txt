@@ -1,7 +1,7 @@
 expname = fern_style
 basedir = ./logs
 datadir = ./data/fern
-styledir = ./fern_styles/
+styledir = ./data/fern/styles/
 dataset_type = llff
 
 factor = 8
