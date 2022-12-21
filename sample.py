@@ -47,7 +47,7 @@ def sampling_pts_uniform(rays_o, rays_d, N_samples=64, near=0., far=1.05, harmon
     if perturb:
         #  Add perturb
         rand = torch.zeros([ray_num, N_samples])
-        nn.init.uniform_(rand, 0, 1)
+        rand.uniform_(0, 1)
         mid = (ts[..., 1:] + ts[..., :-1]) / 2
         upper = torch.cat([mid, ts[..., -1:]], -1)
         lower = torch.cat([ts[..., :1], mid], -1)
