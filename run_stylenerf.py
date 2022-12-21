@@ -310,9 +310,6 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     while True:
         for _ in range(rounds_per_epoch):
             batch_data = train_dataloader.get_batch()
-            # To Device as Tensor
-            for key in batch_data:
-                batch_data[key] = torch.array(batch_data[key].numpy())
 
             # Get batch data
             start_t = time.time()
