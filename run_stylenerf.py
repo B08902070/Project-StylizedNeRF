@@ -309,7 +309,10 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
     while True:
         for _ in tqdm(range(rounds_per_epoch)):
-            batch_data = train_dataloader.get_batch().to(device)
+            batch_data = train_dataloader.get_batch()
+
+            for key in batch_data.keys():
+                batch_data[key] = batch_data[key].to(device)
 
             # Get batch data
             start_t = time.time()
