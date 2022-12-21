@@ -173,19 +173,6 @@ def gen_nerf_images(args, samp_func, samp_func_fine, nerf, nerf_fine, nerf_gen_d
 
     return
 
-def check_nst_preprocess(nerf_gen_data_path, sv_path):
-    """check nerf gen data"""
-    if not os.path.exists(nerf_gen_data_path):
-        train_decoder_nerf_cmd = './python3 train_style_modules.py --task decoder_with_nerf'
-        print('{} does not exist, please run {} first.'.format(nerf_gen_data_path, train_decoder_nerf_cmd))
-        exit(0)
-
-    """check decoder"""
-    sv_name = '/decoder.pth'
-    if not os.path.exists(sv_path + sv_name):
-        finetune_decoder_cmd = './python3 train_style_modules.py --task finetune_decoder'
-        print('{} does not exist, please run {} first.'.format(sv_path+sv_name, finetune_decoder_cmd))
-        exit(0)
 
 def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, ckpts_path, sv_path, nerf_gen_data_path):
     """batchify nerf"""
@@ -483,7 +470,10 @@ def run(args):
 
     """For train stylenerf"""
     if args.train_style_nerf or args.render_train_style or args.render_valid_style:
-        check_nst_preprocess(nerf_gen_data_path, sv_path)
+        if not os.path.exists(nerf_gen_data_path):
+            train_decoder_nerf_cmd = './python3 run_stylenerf.py --gen_nerf_images'
+            print('{} does not exist, please run {} first.'.format(nerf_gen_data_path, train_decoder_nerf_cmd))
+            exit(0)
         global_step = train_style_nerf(args=args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine,
                          nerf=nerf, nerf_fine=nerf_fine, ckpts_path=ckpt_path, sv_path=sv_path, nerf_gen_data_path=nerf_gen_data_path)
 
