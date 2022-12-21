@@ -124,9 +124,9 @@ class Learnable_Latents(nn.Module):
         return loss
 
     def set_latents(self, latents_mu, latents_sigma):
-        self.latents_mu = latents_mu.unsqueeze(1).expand(list(self.latents.shape))
-        self.latents_sigma = latents_sigma.unsqueeze(1).expand(list(self.latents.shape))
-        self.latents = reparameterize(self.latents_mu, self.latents_sigma)
+        all_latents_mu = latents_mu.unsqueeze(1).expand(list(self.latents.shape))
+        all_latents_sigma = latents_sigma.unsqueeze(1).expand(list(self.latents.shape))
+        self.latents = reparameterize(all_latents_mu, all_latents_sigma)
         self.set_requires_grad()
 
     def set_latents_optim(self):
