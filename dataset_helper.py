@@ -159,6 +159,8 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
             tmp_imgs = torch.Tensor([])
             for img in content_images[start:end]:
                 tmp_imgs = torch.cat([tmp_imgs, img_trans(img).unsqueeze(0)])
+            print(content_images[start:end].shape)
+            print(tmp_imgs.shape)
             tmp_imgs = torch.movedim(tmp_imgs.float().to(device), -1, 1)
             with torch.no_grad():
                 _, _, tmp_stylized_imgs, tmp_style_features = nst_net(content_img=tmp_imgs, style_img=style_img[:tmp_imgs.shape[0]], alpha=1, return_img_and_feat = True)
