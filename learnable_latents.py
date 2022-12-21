@@ -100,7 +100,7 @@ class Learnable_Latents(nn.Module):
 
         self.sigma_scale = 1.0
         self.set_requires_grad()
-        self.latent_optim = None
+        self.latents_optim = None
 
     def set_requires_grad(self):
         self.latents.requires_grad = True
@@ -131,5 +131,6 @@ class Learnable_Latents(nn.Module):
         self.latents_optim = torch.optim.Adam([self.latents], lr=1e-3)
 
     def optimize(self):
-        self.latent_optim.step()
+        self.latents_optim.step()
+        self.latents_optim.zero_grad()
 
