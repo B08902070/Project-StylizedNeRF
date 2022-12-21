@@ -18,7 +18,7 @@ from sample import sampling_pts_uniform, sampling_pts_fine
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, nerf_optimizer, ckpts_path, sv_path):
+def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine, nerf_optimizer, ckpt_dir_nerf, sv_path):
 
     train_dataset = RaySampler(data_path=args.datadir, factor=args.factor,
                                    mode='train', valid_factor=args.valid_factor,no_ndc=args.no_ndc,
@@ -50,7 +50,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
     
     """Render train for nerf"""
     if args.render_train:
-        render_path = os.path.join(sv_path, 'render_train_' + str(global_step))
+        render_path =sv_path / ('render_train_' + str(global_step))
         render_dataset = train_dataset
         if args.N_samples_fine > 0:
             render_train(samp_func=samp_func, nerf_forward=nerf_forward, dataset=render_dataset, args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine)
@@ -129,7 +129,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
 
             # Rest is logging
             if global_step % args.i_weights == 0 and global_step > 0 or global_step >= args.origin_step:
-                path = os.path.join(ckpts_path, '{:06d}.tar'.format(global_step))
+                path = ckpt_dir_nerf / '{:06d}.tar'.format(global_step)
                 if args.N_samples_fine > 0:
                     torch.save({
                         'global_step': global_step,
@@ -146,7 +146,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                 print('Saved checkpoints at', path)
 
                 # Delete ckpts
-                ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f]
+                ckpts = [ckpt_dir_nerf / f for f in sorted(ckpt_dir_nerf.glob('*')) if 'tar' in f]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
@@ -189,9 +189,9 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
     
     """Load Check Point for style module"""
-    ckpt_dir_style = os.path.join(sv_path, 'style/')
+    ckpt_dir_style = sv_path / 'style'
     save_makedir(ckpt_dir_style)
-    ckpts_style = [os.path.join(ckpt_dir_style, f) for f in sorted(os.listdir(ckpt_dir_style)) if 'tar' in f and 'style' in f and 'latent' not in f]
+    ckpts_style = [ckpt_dir_style / f for f in sorted(ckpt_dir_style.glob('*')) if 'tar' in f and 'style' in f and 'latent' not in f]
     if len(ckpts_style) > 0 and not args.no_reload:
         ckpt_path_style = ckpts_style[-1]
         print('Reloading Style Model from ', ckpt_path_style)
@@ -227,9 +227,9 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     """Latents Module"""
     latents_model = Learnable_Latents(style_num=train_dataset.style_num, frame_num=train_dataset.frame_num, latent_dim=args.vae_latent)
     vae.to(device)
-    ckpt_dir_latent = os.path.join(sv_path, '')
-    latent_ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' in f]
-    print('Found ckpts', latent_ckpts, ' from ', ckpts_path, ' For Latents Module.')
+    ckpt_dir_latent = sv_path / 'latent'
+    latent_ckpts = [ckpt_dir_latent / f for f in sorted(ckpt_dir_latent.glob('*')) if 'tar' in f and 'style' not in f and 'latent' in f]
+    print('Found ckpts', latent_ckpts, ' from ', ckpt_dir_latent, ' For Latents Module.')
     if len(latent_ckpts) > 0 and not args.no_reload:
         latent_ckpt_path = latent_ckpts[-1]
         print('Reloading Latent Model from ', latent_ckpt_path)
@@ -248,7 +248,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
     # Render valid style
     if args.render_valid_style:
-        render_path = os.path.join(sv_path, 'render_valid_' + str(global_step))
+        render_path = sv_path / ('render_valid_' + str(global_step))
         # Enable style
         nerf.set_enable_style(True)
         if args.N_samples_fine > 0:
@@ -269,7 +269,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
     # Render train style
     if args.render_train_style:
-        render_path = os.path.join(sv_path, 'render_train_' + str(global_step))
+        render_path = sv_path / ('render_train_' + str(global_step))
         # Enable style
         nerf.set_enable_style(True)
         if args.N_samples_fine > 0:
@@ -288,7 +288,8 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
     """NST Net"""
     nst_net = NST_Net(args.vgg_pth_path)
-    ckpts = [os.path.join(args.decoder_pth_dir, f) for f in sorted(os.listdir(args.decoder_pth_dir)) if 'decoder_iter_' in f]
+    ckpt_dir_decoder = Path(args.ckpt_dir_decoder)
+    ckpts = [ckpt_dir_decoder / f for f in sorted(ckpt_dir_decoder.glob('*')) if 'decoder_iter_' in f]
     if len(ckpts) > 0 and not args.no_reload:
         print(f'loading {ckpts[-1]}')
         ld_dict = torch.load(ckpts[-1])
@@ -383,7 +384,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             # Rest is logging
             if global_step % args.i_weights == 0 and global_step > 0:
                 # Saving Style module
-                path = os.path.join(ckpts_path, 'style_{:06d}.tar'.format(global_step))
+                path = ckpt_dir_style / 'style_{:06d}.tar'.format(global_step)
                 torch.save({
                     'global_step': global_step,
                     'model': style_model.state_dict(),
@@ -391,19 +392,19 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
                 }, path)
                 print('Saved checkpoints at', path)
                 # Delete ckpts
-                ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' in f and 'latent' not in f]
+                ckpts = [ckpt_dir_style / f for f in sorted(ckpt_dir_style.glob('*')) if 'tar' in f and 'style' in f and 'latent' not in f]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
                 # Saving Latent Model
-                path = os.path.join(ckpts_path, 'latent_{:06d}.tar'.format(global_step))
+                path = ckpt_dir_latent / 'latent_{:06d}.tar'.format(global_step)
                 torch.save({
                     'global_step': global_step,
                     'train_set': latents_model.state_dict()
                 }, path)
                 print('Saved checkpoints at', path)
                 # Delete ckpts
-                ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' in f]
+                ckpts = [ckpt_dir_latent / f for f in sorted(ckpt_dir_latent) if 'tar' in f and 'style' not in f and 'latent' in f]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
@@ -446,14 +447,14 @@ def run(args):
 
     """Load Check Point for NeRF"""
     global_step = 0
-    ckpts_path = sv_path
-    save_makedir(ckpts_path)
-    ckpts = [os.path.join(ckpts_path, f) for f in sorted(os.listdir(ckpts_path)) if 'tar' in f and 'style' not in f and 'latent' not in f]
-    print('Found ckpts', ckpts, ' from ', ckpts_path)
+    ckpt_dir_nerf = sv_path / 'nerf'
+    save_makedir(ckpt_dir_nerf)
+    ckpts = [ckpt_dir_nerf / f for f in sorted(ckpt_dir_nerf.glob('*')) if 'tar' in f and 'style' not in f and 'latent' not in f]
+    print('Found ckpts', ckpts, ' from ', ckpt_dir_nerf)
     if len(ckpts) > 0 and not args.no_reload:
-        ckpt_path = ckpts[-1]
-        print('Reloading Nerf Model from ', ckpt_path)
-        ckpt = torch.load(ckpt_path, map_location=device)
+        ckpt_nerf = ckpts[-1]
+        print('Reloading Nerf Model from ', ckpt_nerf)
+        ckpt = torch.load(ckpt_nerf, map_location=device)
         global_step = ckpt['global_step']
         # Load nerf
         nerf.load_state_dict(ckpt['nerf'])
@@ -465,7 +466,7 @@ def run(args):
     """For pretrain nerf"""
     if args.pretrain_nerf or args.render_train or args.render_valid:
         global_step = pretrain_nerf(args, global_step=global_step, samp_func=samp_func, samp_func_fine=samp_func_fine, 
-                      nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpts_path=ckpts_path, sv_path=sv_path)
+                      nerf=nerf, nerf_fine=nerf_fine, nerf_optimizer=nerf_optimizer, ckpt_dir_nerf=ckpt_dir_nerf, sv_path=sv_path)
 
     nerf_gen_data_path = sv_path + '/nerf_gen_data2/'
     """For generate nerf images"""
@@ -475,7 +476,7 @@ def run(args):
 
     """For train stylenerf"""
     if args.train_style_nerf or args.render_train_style or args.render_valid_style:
-        if not os.path.exists(nerf_gen_data_path):
+        if not nerf_gen_data_path.exists():
             train_decoder_nerf_cmd = './python3 run_stylenerf.py --gen_nerf_images'
             print('{} does not exist, please run {} first.'.format(nerf_gen_data_path, train_decoder_nerf_cmd))
             exit(0)
