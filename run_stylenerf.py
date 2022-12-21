@@ -461,7 +461,7 @@ def run(args):
     if len(ckpts) > 0 and not args.no_reload:
         ckpt_path = ckpts[-1]
         print('Reloading Nerf Model from ', ckpt_path)
-        ckpt = torch.load(ckpt_path)
+        ckpt = torch.load(ckpt_path, map_location=device)
         global_step = ckpt['global_step']
         # Load nerf
         nerf.load_state_dict(ckpt['nerf'])
