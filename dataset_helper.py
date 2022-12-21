@@ -147,6 +147,7 @@ def style_data_prepare(style_path, content_images, size=512, chunk=64, sv_path=N
 
         """Read Style Images"""
         style_img = img_trans(Image.open(images_path[i]))  # become tensor
+        print('style_img', style_img)
         style_images.append(np.moveaxis(style_img.numpy(), 0, -1))
 
         """Stylization"""
