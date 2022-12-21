@@ -184,7 +184,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     style_model.train()
     style_vars = style_model.parameters()
     style_forward = batchify(lambda **kwargs: style_model(**kwargs), args.chunk)
-    style_optimizer = nn.Adam(params=style_vars, lr=args.lr, betas=(0.9, 0.999))
+    style_optimizer = torch.optim.Adam(params=style_vars, lr=args.lr, betas=(0.9, 0.999))
 
     
     """Load Check Point for style module"""
