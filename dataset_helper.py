@@ -110,11 +110,11 @@ def ndc_rays_np(H, W, focal, near, rays_o, rays_d):
 
 def image_transform(size, crop=False):
     transform_list = []
+    transform_list.append(transforms.ToTensor())
     if size != 0:
         transform_list.append(transforms.Resize(size))
     if crop:
-        transform_list.append(transforms.CenterCrop(size))
-    transform_list.append(transforms.ToTensor())
+        transform_list.append(transforms.CenterCrop(size))   
     transform = transforms.Compose(transform_list)
     return transform
 
