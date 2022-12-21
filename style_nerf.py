@@ -142,7 +142,7 @@ class Style_Module(nn.Module):
     def __init__(self, args, mode='coarse'):
         super().__init__()
         self.D = args.style_D
-        self.W = args.netwith
+        self.W = args.netwidth
         self.input_ch = args.embed_freq_coor * 3 * 2 + 3 + args.vae_latent
         self.skips = [4]
         self.layers=nn.ModuleList()
