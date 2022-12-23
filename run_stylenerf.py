@@ -146,7 +146,7 @@ def pretrain_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fine,
                 print('Saved checkpoints at', path)
 
                 # Delete ckpts
-                ckpts = [ f for f in sorted(ckpt_dir_nerf.glob('*')) if 'tar' in str(f)]
+                ckpts = [ f for f in sorted(ckpt_dir_nerf.glob('*'))]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
@@ -382,7 +382,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
                 }, path)
                 print('Saved checkpoints at', path)
                 # Delete ckpts
-                ckpts = [f for f in sorted(ckpt_dir_style.glob('*')) if 'tar' in str(f) and 'style' in str(f) and 'latent' not in str(f)]
+                ckpts = [f for f in sorted(ckpt_dir_style.glob('*'))]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 
@@ -394,7 +394,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
                 }, path)
                 print('Saved checkpoints at', path)
                 # Delete ckpts
-                ckpts = [f for f in sorted(ckpt_dir_latent.glob('*')) if 'tar' in str(f) and 'style' not in str(f) and 'latent' in str(f)]
+                ckpts = [f for f in sorted(ckpt_dir_latent.glob('*'))]
                 if len(ckpts) > args.ckp_num:
                     os.remove(ckpts[0])
 

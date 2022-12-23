@@ -132,7 +132,7 @@ def config_run_stylenerf():
                         help='frequency of weight ckpt saving')
     parser.add_argument("--i_video",   type=int, default=50000*100,
                         help='frequency of render_poses video saving')
-    parser.add_argument("--ckp_num", type=int, default=3,
+    parser.add_argument("--ckp_num", type=int, default=10,
                         help='Max number of saved ckpts.')
 
     parser.add_argument("--render_valid",   action='store_true',
