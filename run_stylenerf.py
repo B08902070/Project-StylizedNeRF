@@ -439,7 +439,7 @@ def run(args):
     global_step = 0
     ckpt_dir_nerf = sv_path / 'nerf'
     save_makedir(ckpt_dir_nerf)
-    ckpts = [f for f in sorted(ckpt_dir_nerf.glob('*')) if 'tar' in str(f) and 'style' not in str(f) and 'latent' not in str(f)]
+    ckpts = [f for f in sorted(ckpt_dir_nerf.glob('*'))]
     print('Found ckpts', ckpts, ' from ', ckpt_dir_nerf)
     if len(ckpts) > 0 and not args.no_reload:
         ckpt_nerf = ckpts[-1]
