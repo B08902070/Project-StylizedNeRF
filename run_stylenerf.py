@@ -365,8 +365,8 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
 
             # Update Learning Rate
             decay_rate = 0.1
-            decay_steps = args.lrate_decay
-            new_lrate = args.lrate * (decay_rate ** ((global_step - args.origin_step) / decay_steps))
+            decay_steps = args.lr_decay
+            new_lrate = args.lr * (decay_rate ** ((global_step - args.origin_step) / decay_steps))
             for param_group in style_optimizer.param_groups:
                 param_group['lr'] = new_lrate
 
