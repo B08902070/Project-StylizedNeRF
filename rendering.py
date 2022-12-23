@@ -364,8 +364,8 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
                 for i in range(img_num_gathered):
                     style_id = (i + img_id) // frame_num
                     image_id = (i + img_id) % frame_num
-                    imageio.imwrite(sv_path / '/style_{:0>5d}_fine_{:0>5d}.png' % (style_id, image_id), to8b(sv_rgb[i]))
-                    imageio.imwrite(sv_path / '/style_{:0>5d}_fine_depth_{:0>5d}.png' % (style_id, image_id), to8b(sv_t[i]))
+                    imageio.imwrite(sv_path / '/style_{:0>5d}_fine_{:0>5d}.png'.format(style_id, image_id), to8b(sv_rgb[i]))
+                    imageio.imwrite(sv_path / '/style_{:0>5d}_fine_depth_{:0>5d}.png'.format(style_id, image_id), to8b(sv_t[i]))
 
             img_id += img_num_gathered
 
