@@ -118,7 +118,7 @@ class Learnable_Latents(nn.Module):
         mu = self.latents_mu[style_ids]
         sigma = self.latents_sigma[style_ids]
         eps = 1e-3
-        loss = torch.mean(torch.sum((latents-mu.detach())**2 / (torch.exp(0.5 * sigma.detach()) + eps)))
+        loss = torch.mean(torch.sum((latents-mu.detach())**2 / (torch.exp(0.5 * sigma.detach()) + eps), -1))
         return loss
 
     def set_latents(self, latents_mu, latents_sigma):
