@@ -191,7 +191,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     """Load Check Point for style module"""
     ckpt_dir_style = sv_path / 'style'
     save_makedir(ckpt_dir_style)
-    ckpts_style = [f for f in sorted(ckpt_dir_style.glob('*')) if 'tar' in str(f) and 'style' in str(f) and 'latent' not in str(f)]
+    ckpts_style = [f for f in sorted(ckpt_dir_style.glob('*'))]
     if len(ckpts_style) > 0 and not args.no_reload:
         ckpt_path_style = ckpts_style[-1]
         print('Reloading Style Model from ', ckpt_path_style)
@@ -229,7 +229,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     vae.to(device)
     ckpt_dir_latent = sv_path / 'latent'
     save_makedir(ckpt_dir_latent)
-    latent_ckpts = [ f for f in sorted(ckpt_dir_latent.glob('*')) if 'tar' in str(f) and 'style' not in str(f) and 'latent' in str(f)]
+    latent_ckpts = [ f for f in sorted(ckpt_dir_latent.glob('*'))]
     print('Found ckpts', latent_ckpts, ' from ', ckpt_dir_latent, ' For Latents Module.')
     if len(latent_ckpts) > 0 and not args.no_reload:
         latent_ckpt_path = latent_ckpts[-1]
