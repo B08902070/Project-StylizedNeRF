@@ -92,20 +92,20 @@ def render_nerf_for_nst(nerf_forward, samp_func, dataloader, args, sv_path=None,
             sv_t = sv_t.reshape([img_num_gathered, h, w])
             #sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
             for i in range(img_num_gathered):
-                imageio.imwrite(sv_path + '/rgb_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
-                imageio.imwrite(sv_path + '/depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
-                np.savez(sv_path + '/geometry_%05d' % (i + img_id), coor_map=sv_coor_map[i], cps=cps[i + img_id], hwf=hwf, near=near, far=far)
+                imageio.imwrite(sv_path / 'rgb_{:0>5d}.png'.format(i + img_id), to8b(sv_rgb[i]))
+                imageio.imwrite(sv_path / 'depth_{:0>5d}.png'.format(i + img_id), to8b(sv_t[i]))
+                np.savez(sv_path / 'geometry_{:0>5d}'.format(i + img_id), coor_map=sv_coor_map[i], cps=cps[i + img_id], hwf=hwf, near=near, far=far)
             img_id += img_num_gathered
 
     rgb_map, t_map = np.array(rgb_map).reshape([-1, h, w, 3]), np.array(t_map).reshape([-1, h, w, 1])
     coor_map = np.array(coor_map).reshape([-1, h, w, 3])
-    np.savez(sv_path + '/geometry', coor_map=coor_map, cps=cps, hwf=hwf, near=near, far=far)
+    np.savez(sv_path / 'geometry', coor_map=coor_map, cps=cps, hwf=hwf, near=near, far=far)
 
     t_map_show = np.broadcast_to(t_map, [t_map.shape[0], h, w, 3])
     t_map_show = (t_map_show - t_map_show.min()) / (t_map_show.max() - t_map_show.min() + 1e-10)
     if sv_path is not None:
-        imageio.mimwrite(sv_path + '/rgb.mp4', to8b(rgb_map), fps=30, quality=8)
-        imageio.mimwrite(sv_path + '/depth.mp4', to8b(t_map_show), fps=30, quality=8)
+        imageio.mimwrite(sv_path / 'rgb.mp4', to8b(rgb_map), fps=30, quality=8)
+        imageio.mimwrite(sv_path / 'depth.mp4', to8b(t_map_show), fps=30, quality=8)
 
     return rgb_map, t_map
 
@@ -159,8 +159,8 @@ def render(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward
             sv_t = sv_t.reshape([img_num_gathered, h, w])
             #sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
             for i in range(img_num_gathered):
-                imageio.imwrite(sv_path + '/coarse_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
-                imageio.imwrite(sv_path + '/coarse_depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
+                imageio.imwrite(sv_path / 'coarse_{:0>5d}.png'.format(i + img_id), to8b(sv_rgb[i]))
+                imageio.imwrite(sv_path / 'coarse_depth_{:0>5d}.png'.format(i + img_id), to8b(sv_t[i]))
 
             if args.N_samples_fine > 0:
                 sv_rgb = np.array(rgb_map_fine[img_id * resolution: (img_id + img_num_gathered) * resolution],
@@ -172,8 +172,8 @@ def render(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward
                 sv_t = sv_t.reshape([img_num_gathered, h, w])
                 sv_rgb, sv_t = np.array(sv_rgb * 255, np.int32), np.array(sv_t * 255, np.int32)
                 for i in range(img_num_gathered):
-                    imageio.imwrite(sv_path + '/fine_%05d.png' % (i + img_id), to8b(sv_rgb[i]))
-                    imageio.imwrite(sv_path + '/fine_depth_%05d.png' % (i + img_id), to8b(sv_t[i]))
+                    imageio.imwrite(sv_path / 'fine_{:0>5d}.png'.format(i + img_id), to8b(sv_rgb[i]))
+                    imageio.imwrite(sv_path / 'fine_depth_{:0>5d}.png'.format(i + img_id), to8b(sv_t[i]))
 
             img_id += img_num_gathered
 
@@ -181,16 +181,16 @@ def render(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward
     t_map_show = np.broadcast_to(t_map, [t_map.shape[0], h, w, 3])
     t_map_show = (t_map_show - t_map_show.min()) / (t_map_show.max() - t_map_show.min() + 1e-10)
     if sv_path is not None:
-        imageio.mimwrite(sv_path + '/coarse_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
-        imageio.mimwrite(sv_path + '/coarse_depth.mp4', to8b(t_map_show), fps=30, quality=8)
+        imageio.mimwrite(sv_path / 'coarse_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
+        imageio.mimwrite(sv_path / 'coarse_depth.mp4', to8b(t_map_show), fps=30, quality=8)
 
     if args.N_samples_fine > 0:
         rgb_map_fine, t_map_fine = np.array(rgb_map_fine).reshape([-1, h, w, 3]), np.array(t_map_fine).reshape([-1, h, w, 1])
         t_map_show = np.broadcast_to(t_map_fine, [t_map_fine.shape[0], h, w, 3])
         t_map_show = (t_map_show - t_map_show.min()) / (t_map_show.max() - t_map_show.min() + 1e-10)
         if sv_path is not None:
-            imageio.mimwrite(sv_path + '/fine_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
-            imageio.mimwrite(sv_path + '/fine_depth.mp4', to8b(t_map_show), fps=30, quality=8)
+            imageio.mimwrite(sv_path / 'fine_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
+            imageio.mimwrite(sv_path / 'fine_depth.mp4', to8b(t_map_show), fps=30, quality=8)
 
     return rgb_map, t_map, rgb_map_fine, t_map_fine
 
@@ -262,9 +262,9 @@ def render_train(nerf_forward, samp_func, dataset, args, device, sv_path=None, n
             #gt_rgb = np.array(gt_rgb * 255, np.int32)
 
             # Saving images
-            imageio.imwrite(sv_path + '/coarse_%05d.png' % img_count, to8b(pred_rgb))
-            imageio.imwrite(sv_path + '/coarse_depth_%05d.png' % img_count, to8b(pred_t))
-            imageio.imwrite(sv_path + '/gt_%05d.png' % img_count, to8b(gt_rgb))
+            imageio.imwrite(sv_path / 'coarse_{:0>5d}.png'.format(img_count), to8b(pred_rgb))
+            imageio.imwrite(sv_path / 'coarse_depth_{:0>5d}.png'.format(img_count), to8b(pred_t))
+            imageio.imwrite(sv_path / 'gt_{:0>5d}.png'.format(img_count), to8b(gt_rgb))
 
             if args.N_samples_fine > 0:
                 pred_rgb_fine = np.concatenate(pred_rgb_fine, axis=0).reshape([h, w, 3])
@@ -272,8 +272,8 @@ def render_train(nerf_forward, samp_func, dataset, args, device, sv_path=None, n
                 pred_t_fine = np.broadcast_to(pred_t_fine[..., np.newaxis], [h, w, 3])
                 pred_t_fine = (pred_t_fine - pred_t_fine.min()) / (pred_t_fine.max() - pred_t_fine.min())
                 pred_rgb_fine, pred_t_fine = np.array(pred_rgb_fine * 255, np.int32), np.array(pred_t_fine * 255, np.int32)
-                imageio.imwrite(sv_path + '/fine_%05d.png' % img_count, to8b(pred_rgb_fine))
-                imageio.imwrite(sv_path + '/fine_depth_%05d.png' % img_count, to8b(pred_t_fine))
+                imageio.imwrite(sv_path / 'fine_{:0>5d}.png'.format(img_count), to8b(pred_rgb_fine))
+                imageio.imwrite(sv_path / 'fine_depth_{:0>5d}.png'.format(img_count), to8b(pred_t_fine))
 
             img_count += 1
             print("Finish %d Image ..." % img_count)
