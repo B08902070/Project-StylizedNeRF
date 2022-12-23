@@ -315,7 +315,7 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
         rgb_exp_style, t_exp, weights = alpha_composition(pts_rgb_style, pts_sigma, ts, 0)
 
         # Gather outputs
-        rgb_exp, t_exp = rgb_exp_style.detach().numpy(), t_exp.detach().numpy()
+        rgb_exp, t_exp = rgb_exp_style.detach().cpu().numpy(), t_exp.detach().cpu().numpy()
         rgb_map = rgb_exp if rgb_map is None else np.concatenate([rgb_map, rgb_exp], axis=0)
         t_map = t_exp if t_map is None else np.concatenate([t_map, t_exp], axis=0)
 
@@ -334,7 +334,7 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
             # Composition
             rgb_exp_style_fine, t_exp_fine, _ = alpha_composition(pts_rgb_style_fine, pts_sigma_fine, ts_fine, 0)
             # Gather outputs
-            rgb_exp_fine, t_exp_fine = rgb_exp_style_fine.detach().numpy(), t_exp_fine.detach().numpy()
+            rgb_exp_fine, t_exp_fine = rgb_exp_style_fine.detach().cpu().numpy(), t_exp_fine.detach().cpu().numpy()
             rgb_map_fine = rgb_exp_fine if rgb_map_fine is None else np.concatenate([rgb_map_fine, rgb_exp_fine], axis=0)
             t_map_fine = t_exp_fine if t_map_fine is None else np.concatenate([t_map_fine, t_exp_fine], axis=0)
 
