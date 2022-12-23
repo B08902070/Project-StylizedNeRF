@@ -127,6 +127,9 @@ class Learnable_Latents(nn.Module):
         self.latents = reparameterize(all_latents_mu, all_latents_sigma)
         self.set_requires_grad()
 
+    def rescale_sigma(self, sigma_scale):
+        self.sigma_scale = sigma_scale
+
     def set_latents_optim(self):
         self.latents_optim = torch.optim.Adam([self.latents], lr=1e-3)
 

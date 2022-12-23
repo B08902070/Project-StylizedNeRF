@@ -286,7 +286,6 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
     latents_model.rescale_sigma(sigma_scale=sigma_scale)
     save_makedir(sv_path)
     dataset = dataloader.dataset
-    dataset.mode = 'valid_style'
     frame_num, h, w = dataset.cps_valid.shape[0], dataset.h, dataset.w
     resolution = h * w
     img_id = 0
@@ -392,7 +391,6 @@ def render_train_style(samp_func, nerf_forward, style_forward, latents_model, da
     save_makedir(sv_path)
     latents_model.rescale_sigma(sigma_scale=sigma_scale)
     frame_num, h, w = dataset.frame_num, dataset.h, dataset.w
-    dataset.mode = 'train_style'
 
     # The largest factor of h*w closest to chunk.
     batch_size = args.chunk
