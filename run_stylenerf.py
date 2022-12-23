@@ -282,7 +282,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     """NST Net"""
     nst_net = NST_Net(args.vgg_pth_path)
     ckpt_dir_decoder = Path(args.ckpt_dir_decoder)
-    ckpts = [ f for f in sorted(ckpt_dir_decoder.glob('*')) if 'decoder_iter_' in str(f)]
+    ckpts = [ f for f in sorted(ckpt_dir_decoder.glob('*'))]
     if len(ckpts) > 0 and not args.no_reload:
         print(f'loading {ckpts[-1]}')
         ld_dict = torch.load(ckpts[-1])
@@ -362,6 +362,13 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             loss.backward()
             style_optimizer.step()
             latents_model.optimize()
+
+            # Update Learning Rate
+            decay_rate = 0.1
+            decay_steps = args.lrate_decay
+            new_lrate = args.lrate * (decay_rate ** ((global_step - args.origin_step) / decay_steps))
+            for param_group in style_optimizer.param_groups:
+                param_group['lr'] = new_lrate
 
 
             # Time Measuring
