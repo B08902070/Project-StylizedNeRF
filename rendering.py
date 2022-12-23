@@ -349,8 +349,8 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
             for i in range(img_num_gathered):
                 style_id = (i + img_id) // frame_num
                 image_id = (i + img_id) % frame_num
-                imageio.imwrite(sv_path + '/style_%05d_coarse_%05d.png' % (style_id, image_id), to8b(sv_rgb[i]))
-                imageio.imwrite(sv_path + '/style_%05d_coarse_depth_%05d.png' % (style_id, image_id), to8b(sv_t[i]))
+                imageio.imwrite(sv_path / '/style_%05d_coarse_%05d.png' % (style_id, image_id), to8b(sv_rgb[i]))
+                imageio.imwrite(sv_path / '/style_%05d_coarse_depth_%05d.png' % (style_id, image_id), to8b(sv_t[i]))
 
             if args.N_samples_fine > 0:
                 sv_rgb = np.array(rgb_map_fine[img_id * resolution: (img_id + img_num_gathered) * resolution],
@@ -364,8 +364,8 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
                 for i in range(img_num_gathered):
                     style_id = (i + img_id) // frame_num
                     image_id = (i + img_id) % frame_num
-                    imageio.imwrite(sv_path + '/style_%05d_fine_%05d.png' % (style_id, image_id), to8b(sv_rgb[i]))
-                    imageio.imwrite(sv_path + '/style_%05d_fine_depth_%05d.png' % (style_id, image_id), to8b(sv_t[i]))
+                    imageio.imwrite(sv_path / '/style_%05d_fine_%05d.png' % (style_id, image_id), to8b(sv_rgb[i]))
+                    imageio.imwrite(sv_path / '/style_%05d_fine_depth_%05d.png' % (style_id, image_id), to8b(sv_t[i]))
 
             img_id += img_num_gathered
 
@@ -373,16 +373,16 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
     t_map_show = np.broadcast_to(t_map, [t_map.shape[0], h, w, 3])
     t_map_show = (t_map_show - t_map_show.min()) / (t_map_show.max() - t_map_show.min() + 1e-10)
     if sv_path is not None:
-        imageio.mimwrite(sv_path + '/coarse_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
-        imageio.mimwrite(sv_path + '/coarse_depth.mp4', to8b(t_map_show), fps=30, quality=8)
+        imageio.mimwrite(sv_path / '/coarse_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
+        imageio.mimwrite(sv_path / '/coarse_depth.mp4', to8b(t_map_show), fps=30, quality=8)
 
     if args.N_samples_fine > 0:
         rgb_map_fine, t_map_fine = np.array(rgb_map_fine).reshape([-1, h, w, 3]), np.array(t_map_fine).reshape([-1, h, w, 1])
         t_map_show = np.broadcast_to(t_map_fine, [t_map_fine.shape[0], h, w, 3])
         t_map_show = (t_map_show - t_map_show.min()) / (t_map_show.max() - t_map_show.min() + 1e-10)
         if sv_path is not None:
-            imageio.mimwrite(sv_path + '/fine_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
-            imageio.mimwrite(sv_path + '/fine_depth.mp4', to8b(t_map_show), fps=30, quality=8)
+            imageio.mimwrite(sv_path / '/fine_rgb.mp4', to8b(rgb_map), fps=30, quality=8)
+            imageio.mimwrite(sv_path / '/fine_depth.mp4', to8b(t_map_show), fps=30, quality=8)
 
     return rgb_map, t_map, rgb_map_fine, t_map_fine
 
@@ -482,9 +482,9 @@ def render_train_style(samp_func, nerf_forward, style_forward, latents_model, da
                 # Saving images
                 style_id = img_count // frame_num
                 image_id = img_count % frame_num
-                imageio.imwrite(sv_path + '/style_%05d_coarse_%05d.png' % (style_id, image_id), to8b(pred_rgb))
-                imageio.imwrite(sv_path + '/style_%05d_coarse_depth_%05d.png' % (style_id, image_id), to8b(pred_t))
-                imageio.imwrite(sv_path + '/style_%05d_2d_%05d.png' % (style_id, image_id), to8b(gt_rgb))
+                imageio.imwrite(sv_path / '/style_%05d_coarse_%05d.png' % (style_id, image_id), to8b(pred_rgb))
+                imageio.imwrite(sv_path / '/style_%05d_coarse_depth_%05d.png' % (style_id, image_id), to8b(pred_t))
+                imageio.imwrite(sv_path / '/style_%05d_2d_%05d.png' % (style_id, image_id), to8b(gt_rgb))
 
                 if args.N_samples_fine > 0:
                     pred_rgb_fine = np.concatenate(pred_rgb_fine, axis=0).reshape([h, w, 3])
@@ -492,8 +492,8 @@ def render_train_style(samp_func, nerf_forward, style_forward, latents_model, da
                     pred_t_fine = np.broadcast_to(pred_t_fine[..., np.newaxis], [h, w, 3])
                     pred_t_fine = (pred_t_fine - pred_t_fine.min()) / (pred_t_fine.max() - pred_t_fine.min())
                     pred_rgb_fine, pred_t_fine = np.array(pred_rgb_fine * 255, np.int32), np.array(pred_t_fine * 255, np.int32)
-                    imageio.imwrite(sv_path + '/style_%05d_fine_%05d.png' % (style_id, image_id), to8b(pred_rgb_fine))
-                    imageio.imwrite(sv_path + '/style_%05d_fine_depth_%05d.png' % (style_id, image_id), to8b(pred_t_fine))
+                    imageio.imwrite(sv_path / '/style_%05d_fine_%05d.png' % (style_id, image_id), to8b(pred_rgb_fine))
+                    imageio.imwrite(sv_path / '/style_%05d_fine_depth_%05d.png' % (style_id, image_id), to8b(pred_t_fine))
                 img_count += 1
                 print("Finish %d Image ..." % img_count)
                 iter = 0
