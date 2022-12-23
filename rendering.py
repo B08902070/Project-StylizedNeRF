@@ -123,7 +123,7 @@ def render(nerf_forward, samp_func, dataloader, args, sv_path=None, nerf_forward
     for batch_idx, batch_data in enumerate(tqdm(dataloader)):
         # To Device as Tensor
         for key in batch_data:
-            batch_data[key] = torch.array(batch_data[key].numpy())
+            batch_data[key] = torch.Tensor(batch_data[key].numpy())
 
         # Get data and forward
         rays_o, rays_d = batch_data['rays_o'], batch_data['rays_d']
@@ -294,7 +294,7 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
     for batch_idx, batch_data in enumerate(tqdm(dataloader)):
         # To Device as Tensor
         for key in batch_data:
-            batch_data[key] = torch.array(batch_data[key].numpy())
+            batch_data[key] = batch_data[key].to(device)
 
         # Get data and forward
         rays_o, rays_d, style_feature = batch_data['rays_o'], batch_data['rays_d'], batch_data['style_feature']
@@ -415,7 +415,7 @@ def render_train_style(samp_func, nerf_forward, style_forward, latents_model, da
         if not os.path.exists(img_path_check):
             # To Device as Tensor
             for key in batch_data:
-                batch_data[key] = torch.array(batch_data[key].numpy())
+                batch_data[key] = batch_data[key].to(device)
 
             # Get batch data
             rgb_gt, rays_o, rays_d, rgb_origin = batch_data['rgb_gt'], batch_data['rays_o'], batch_data['rays_d'], \
