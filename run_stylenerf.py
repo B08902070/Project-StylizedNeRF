@@ -195,7 +195,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     if len(ckpts_style) > 0 and not args.no_reload:
         ckpt_path_style = ckpts_style[-1]
         print('Reloading Style Model from ', ckpt_path_style)
-        ckpt_style = torch.load(ckpt_path_style)
+        ckpt_style = torch.load(ckpt_path_style, map_location=device)
         global_step = ckpt_style['global_step']
         style_model.load_state_dict(ckpt_style['model'])
         style_optimizer.load_state_dict(ckpt_style['optimizer'])
@@ -250,12 +250,8 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     # Render valid style
     if args.render_valid_style:
         render_path = sv_path / ('render_valid_' + str(global_step))
-        # Enable style
-        nerf.set_enable_style(True)
-        if args.N_samples_fine > 0:
-            nerf_fine.set_enable_style(True)
         valid_dataset = train_dataset
-        valid_dataset.mode = 'valid_style'
+        valid_dataset.set_mode('valid_style')
         valid_dataloader = DataLoader(valid_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
         with torch.no_grad():
             if args.N_samples_fine > 0:
@@ -271,12 +267,8 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     # Render train style
     if args.render_train_style:
         render_path = sv_path / ('render_train_' + str(global_step))
-        # Enable style
-        nerf.set_enable_style(True)
-        if args.N_samples_fine > 0:
-            nerf_fine.set_enable_style(True)
         render_dataset = train_dataset
-        render_dataset.mode = 'train_style'
+        render_dataset.set_mode('train_style')
         if args.N_samples_fine > 0:
             render_train_style(samp_func=samp_func, nerf_forward=nerf_forward, style_forward=style_forward, latents_model=latents_model, dataset=render_dataset, args=args, device=device, sv_path=render_path, nerf_forward_fine=nerf_forward_fine, samp_func_fine=samp_func_fine, sigma_scale=args.sigma_scale)
         else:
