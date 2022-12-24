@@ -111,8 +111,6 @@ class Learnable_Latents(nn.Module):
         flat_ids = style_ids*self.frame_num + frame_ids
         frame_latents = self.latents.reshape([-1, self.latent_dim])[flat_ids]
         latents_mu = self.latents_mu[style_ids]
-        print(frame_latents.shape)
-        print(latents_mu.shape)
         return (frame_latents-latents_mu) * self.sigma_scale + latents_mu
     
     def loss(self, style_ids, latents):
@@ -127,9 +125,6 @@ class Learnable_Latents(nn.Module):
         all_latents_mu = latents_mu.unsqueeze(1).expand(list(self.latents.shape))
         all_latents_sigma = latents_sigma.unsqueeze(1).expand(list(self.latents.shape))
         self.latents = Variable(reparameterize(all_latents_mu, all_latents_sigma))
-        print(self.latents_mu.shape)
-        print(self.latents_sigma.shape)
-        print(self.latents.shape)
         self.set_requires_grad()
 
     def rescale_sigma(self, sigma_scale):
