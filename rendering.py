@@ -307,7 +307,7 @@ def render_style(nerf_forward, samp_func, style_forward, latents_model, dataload
         ret = nerf_forward(pts=pts, dirs=rays_d_forward)
         pts_sigma, pts_embed = ret['sigma'], ret['pts']
         # Stylize
-        style_latents = latents_model(style_ids=style_id, frame_ids=frame_id)
+        style_latents = latents_model(style_id=style_id, frame_id=frame_id)
         style_latents_forward = style_latents.unsqueeze(1).expand([ray_num, pts_num, style_latents.shape[-1]])
         ret_style = style_forward(x=pts_embed, latent=style_latents_forward)
         pts_rgb_style = ret_style['rgb']
@@ -432,7 +432,7 @@ def render_train_style(samp_func, nerf_forward, style_forward, latents_model, da
             ret = nerf_forward(pts=pts, dirs=rays_d_forward)
             pts_sigma, pts_embed = ret['sigma'], ret['pts']
             # Stylize
-            style_latents = latents_model(style_ids=style_id, frame_ids=frame_id)
+            style_latents = latents_model(style_id=style_id, frame_id=frame_id)
             style_latents_forward = style_latents.unsqueeze(1).expand([ray_num, pts_num, style_latents.shape[-1]])
             ret_style = style_forward(x=pts_embed, latent=style_latents_forward)
             pts_rgb_style = ret_style['rgb']

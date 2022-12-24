@@ -94,9 +94,9 @@ class Learnable_Latents(nn.Module):
         self.frame_num = frame_num
         self.latent_dim = latent_dim
 
-        self.latents = torch.randn(self.style_num, self.frame_num, self.latent_dim)
-        self.latents_mu = torch.randn(self.style_num, self.latent_dim)
-        self.latents_sigma = torch.randn(self.style_num, self.latent_dim)
+        self.latents = Variable(torch.randn(self.style_num, self.frame_num, self.latent_dim))
+        self.latents_mu = Variable(torch.randn(self.style_num, self.latent_dim))
+        self.latents_sigma = Variable(torch.randn(self.style_num, self.latent_dim))
 
         self.sigma_scale = 1.0
         self.set_requires_grad()
@@ -112,18 +112,18 @@ class Learnable_Latents(nn.Module):
         latents_mu = self.latents_mu[style_id]
         return (frame_latents-latents_mu) * self.sigma_scale + latents_mu
     
-    def loss(self, style_ids, latents):
-        mu = self.latents_mu[style_ids]
-        sigma = self.latents_sigma[style_ids]
+    def loss(self, style_id, latents):
+        mu = self.latents_mu[style_id]
+        sigma = self.latents_sigma[style_id]
         eps = 1e-3
         loss = torch.mean(torch.sum((latents-mu.detach())**2 / (torch.exp(0.5 * sigma.detach()) + eps), -1))
         return loss
 
     def set_latents(self, latents_mu, latents_sigma):
-        self.latents_mu, self.latents_sigma = latents_mu, latents_sigma
+        self.latents_mu, self.latents_sigma = Variable(latents_mu), Variable(latents_sigma)
         all_latents_mu = latents_mu.unsqueeze(1).expand(list(self.latents.shape))
         all_latents_sigma = latents_sigma.unsqueeze(1).expand(list(self.latents.shape))
-        self.latents = reparameterize(all_latents_mu, all_latents_sigma)
+        self.latents = Variable(reparameterize(all_latents_mu, all_latents_sigma))
         self.set_requires_grad()
 
     def rescale_sigma(self, sigma_scale):
