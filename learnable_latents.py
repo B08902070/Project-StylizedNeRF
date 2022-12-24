@@ -108,6 +108,7 @@ class Learnable_Latents(nn.Module):
         self.latents_sigma.requires_grad=False
 
     def forward(self, style_id, frame_id):
+        print(style_id, frame_id)
         flat_id = style_id*self.frame_num + frame_id
         frame_latents = self.latents[style_id][frame_id]
         latents_mu = self.latents_mu[style_id]
