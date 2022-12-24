@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
+from torch.nn import Parameter
 
 class VAE_encoder(nn.Module):
     def __init__(self, data_dim, latent_dim, W=512, D=4):
@@ -94,9 +94,9 @@ class Learnable_Latents(nn.Module):
         self.frame_num = frame_num
         self.latent_dim = latent_dim
 
-        self.latents = Variable(torch.randn(self.style_num, self.frame_num, self.latent_dim))
-        self.latents_mu = Variable(torch.randn(self.style_num, self.latent_dim))
-        self.latents_sigma = Variable(torch.randn(self.style_num, self.latent_dim))
+        self.latents = Parameter(torch.randn(self.style_num, self.frame_num, self.latent_dim))
+        self.latents_mu = Parameter(torch.randn(self.style_num, self.latent_dim))
+        self.latents_sigma = Parameter(torch.randn(self.style_num, self.latent_dim))
 
         self.sigma_scale = 1.0
         self.set_requires_grad()
@@ -121,10 +121,10 @@ class Learnable_Latents(nn.Module):
         return loss
 
     def set_latents(self, latents_mu, latents_sigma):
-        self.latents_mu, self.latents_sigma = Variable(latents_mu), Variable(latents_sigma)
+        self.latents_mu, self.latents_sigma = Parameter(latents_mu), Parameter(latents_sigma)
         all_latents_mu = latents_mu.unsqueeze(1).expand(list(self.latents.shape))
         all_latents_sigma = latents_sigma.unsqueeze(1).expand(list(self.latents.shape))
-        self.latents = Variable(reparameterize(all_latents_mu, all_latents_sigma))
+        self.latents = Parameter(reparameterize(all_latents_mu, all_latents_sigma))
         self.set_requires_grad()
 
     def rescale_sigma(self, sigma_scale):
