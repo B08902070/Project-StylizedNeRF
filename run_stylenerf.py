@@ -229,7 +229,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
     if len(latent_ckpts) > 0 and not args.no_reload:
         latent_ckpt_path = latent_ckpts[-1]
         print('Reloading Latent Model from ', latent_ckpt_path)
-        latent_ckpt = torch.load(latent_ckpt_path)
+        latent_ckpt = torch.load(latent_ckpt_path, map_location=device)
         latents_model.load_state_dict(latent_ckpt['train_set'])
     else:
         vae.to(device)
