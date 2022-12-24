@@ -210,12 +210,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
                                         decoder_dir=args.ckpt_dir_decoder, no_reload=args.no_reload)
     train_dataset.collect_all_stylized_images()
     train_dataset.set_mode('train_style')
-
-    """Dataloader Preparation"""   
-    train_dataloader = LightDataLoader(train_dataset, batch_size=args.batch_size_style, shuffle=True, \
-                                        num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
-    rounds_per_epoch = int(train_dataloader.data_num / train_dataloader.batch_size)
-    print('DataLoader Creation Done !')
+    
                                   
     """VAE"""
     vae = VAE(data_dim=1024, latent_dim=args.vae_latent, W=args.vae_w, D=args.vae_d,
@@ -275,6 +270,13 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             render_train_style(samp_func=samp_func, nerf_forward=nerf_forward, style_forward=style_forward, latents_model=latents_model, dataset=render_dataset, args=args, device=device, sv_path=render_path, sigma_scale=args.sigma_scale)
         return
 
+
+
+    """Dataloader Preparation"""   
+    train_dataloader = LightDataLoader(train_dataset, batch_size=args.batch_size_style, shuffle=True, \
+                                        num_workers=args.num_workers, pin_memory=(args.num_workers > 0))
+    rounds_per_epoch = int(train_dataloader.data_num / train_dataloader.batch_size)
+    print('DataLoader Creation Done !')
     # Elapse Measurement
     data_time, model_time, opt_time = 0, 0, 0
     fine_time = 0
