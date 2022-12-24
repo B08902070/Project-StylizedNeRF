@@ -325,7 +325,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             ret = nerf_forward(pts=pts, dirs=rays_d_forward)
             pts_sigma, pts_embed = ret['sigma'], ret['pts']
             # Stylize
-            style_latents = latents_model(style_id=style_id, frame_id=frame_id)
+            style_latents = latents_model(style_ids=style_id, frame_ids=frame_id)
             style_latents_forward = style_latents.unsqueeze(1).expand([ray_num, pts_num, style_latents.shape[-1]])
             ret_style = style_forward(x=pts_embed, latent=style_latents_forward)
             pts_rgb_style = ret_style['rgb']
@@ -335,7 +335,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             loss_rgb = args.rgb_loss_lambda * img2mse(rgb_exp_style, rgb_gt)
             # Latent LogP loss
             logp_loss_lambda = args.logp_loss_lambda * (args.logp_loss_decay ** int((global_step - args.origin_step) / 1000))
-            loss_logp = logp_loss_lambda * latents_model.loss(style_id=style_id, latents=style_latents)
+            loss_logp = logp_loss_lambda * latents_model.loss(style_ids=style_id, latents=style_latents)
 
             fine_t = time.time()
             if args.N_samples_fine > 0:
