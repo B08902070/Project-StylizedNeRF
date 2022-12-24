@@ -230,6 +230,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
         latent_ckpt_path = latent_ckpts[-1]
         print('Reloading Latent Model from ', latent_ckpt_path)
         latent_ckpt = torch.load(latent_ckpt_path)
+        print(latent_ckpt['train_set'])
         latents_model.load_state_dict(latent_ckpt['train_set'])
     else:
         vae.to(device)
@@ -334,7 +335,7 @@ def train_style_nerf(args, global_step, samp_func, samp_func_fine, nerf, nerf_fi
             loss_rgb = args.rgb_loss_lambda * img2mse(rgb_exp_style, rgb_gt)
             # Latent LogP loss
             logp_loss_lambda = args.logp_loss_lambda * (args.logp_loss_decay ** int((global_step - args.origin_step) / 1000))
-            loss_logp = logp_loss_lambda * latents_model.loss(style_ids=style_id, frame_ids=frame_id)
+            loss_logp = logp_loss_lambda * latents_model.loss(style_ids=style_id, latents=style_latents)
 
             fine_t = time.time()
             if args.N_samples_fine > 0:

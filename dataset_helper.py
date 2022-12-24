@@ -146,19 +146,16 @@ def style_data_prepare(style_path, content_images, H, W, chunk=64, sv_path=None,
 
         """Read Style Images"""
         style_img = img_trans(Image.open(images_path[i]))  # become tensor
-        print('style_ img', style_img.shape)
         style_images.append(np.moveaxis(style_img.numpy(), 0, -1))
 
         """Stylization"""
         stylized_images = np.zeros_like(content_images)
         style_feature = np.zeros([1024], dtype=np.float32)
         style_img = style_img.float().to(device).unsqueeze(0).expand([chunk, *style_img.shape])
-        print('style_ img', style_img.shape)
         start = 0
         while start < content_images.shape[0]:
             end = min(start + chunk, content_images.shape[0])
             tmp_imgs = torch.movedim(torch.from_numpy(content_images[start:end]).float().to(device), -1, 1)
-            print(tmp_imgs.shape)
             with torch.no_grad():
                 _, _, tmp_stylized_imgs, tmp_style_features = nst_net(content_img=tmp_imgs, style_img=style_img[:tmp_imgs.shape[0]], alpha=1, return_img_and_feat = True)
                 tmp_stylized_imgs = np.moveaxis(tmp_stylized_imgs.cpu().numpy(), 1, -1)
