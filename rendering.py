@@ -491,7 +491,7 @@ def render_train_style(samp_func, nerf_forward, style_forward, latents_model, da
                     pred_t_fine = np.concatenate(pred_t_fine, axis=0).reshape([h, w])
                     pred_t_fine = np.broadcast_to(pred_t_fine[..., np.newaxis], [h, w, 3])
                     pred_t_fine = (pred_t_fine - pred_t_fine.min()) / (pred_t_fine.max() - pred_t_fine.min())
-                    pred_rgb_fine, pred_t_fine = np.array(pred_rgb_fine * 255, np.int32), np.array(pred_t_fine * 255, np.int32)
+                    #pred_rgb_fine, pred_t_fine = np.array(pred_rgb_fine * 255, np.int32), np.array(pred_t_fine * 255, np.int32)
                     imageio.imwrite(sv_path / 'style_{:0>5d}_fine_{:0>5d}.png'.format(style_id, image_id), to8b(pred_rgb_fine))
                     imageio.imwrite(sv_path / 'style_{:0>5d}_fine_depth_{:0>5d}.png'.format(style_id, image_id), to8b(pred_t_fine))
                 img_count += 1
