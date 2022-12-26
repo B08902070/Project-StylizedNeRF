@@ -105,7 +105,7 @@ def config_run_stylenerf():
                         help='learning rate')
     parser.add_argument("--lr_decay", type=int, default=100000,
                         help='exponential learning rate decay (in 1000 steps)')
-    parser.add_argument("--chunk", type=int, default=1024*32,
+    parser.add_argument("--chunk", type=int, default=1024*8,
                         help='number of rays processed in parallel, decrease if running out of memory')
     parser.add_argument("--no_reload", action='store_true',
                         help='do not reload weights from saved ckpt')

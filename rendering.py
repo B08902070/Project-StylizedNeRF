@@ -281,7 +281,7 @@ def render_train(nerf_forward, samp_func, dataset, args, device, sv_path=None, n
             pred_rgb, gt_rgb, pred_t, gt_t, depth_masks = [], [], [], [], []
             pred_rgb_fine, pred_t_fine = [], []
 
-def render_style(nerf_forward, samp_func, style_forward, latents_model, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None, sigma_scale=0.):
+def render_style(nerf_forward, samp_func, style_forward, latents_model, dataloader, args, device, sv_path=None, nerf_forward_fine=None, samp_func_fine=None, sigma_scale=1.):
     """Render Scene into Images"""
     latents_model.rescale_sigma(sigma_scale=sigma_scale)
     save_makedir(sv_path)
